@@ -29,7 +29,7 @@ const TactileButton = ({ active, onClick, children, label, sublabel }) => (
   </button>
 );
 
-const Controls = ({ data, selection, onChange }) => {
+const Controls = ({ data, selection, onChange, showControls, setShowControls }) => {
   const brands = useMemo(() => Object.keys(data || {}), [data]);
   
   const models = useMemo(() => {
@@ -53,115 +53,134 @@ const Controls = ({ data, selection, onChange }) => {
   const deliveryRatios = [1.78, 1.90, 2.39, 2.76];
 
   return (
-    <div className="w-[340px] bg-white h-full flex flex-col p-8 overflow-y-auto">
-      <div className="mb-12">
-        <div className="text-xl font-black tracking-tighter text-gray-900 mb-1">
-          ANAMORPHIC<span className="text-[#ff4400]">_</span>SIM
+    <div 
+      className={`
+        w-full lg:w-[340px] bg-white flex flex-col transition-all duration-500 ease-in-out border-t lg:border-t-0 lg:border-r border-gray-200 shrink-0
+        ${showControls ? 'h-[60vh] lg:h-full' : 'h-[80px] lg:h-full'}
+      `}
+    >
+      {/* HEADER & MOBILE TOGGLE */}
+      <div className="p-6 lg:p-8 flex items-center justify-between shrink-0">
+        <div>
+          <div className="text-xl font-black tracking-tighter text-gray-900 mb-0.5">
+            ANAMORPHIC<span className="text-[#ff4400]">_</span>SIM
+          </div>
+          <div className="text-[9px] font-bold text-gray-400 tracking-[0.3em] uppercase">
+            by Ha Joon Park
+          </div>
         </div>
-        <div className="text-[9px] font-bold text-gray-400 tracking-[0.3em] uppercase">
-          by Ha Joon Park
-        </div>
+        
+        <button 
+          onClick={() => setShowControls(!showControls)}
+          className="lg:hidden flex flex-col gap-1.5 p-2 group"
+        >
+          <div className={`h-0.5 w-6 bg-gray-900 transition-all duration-300 ${!showControls ? '' : 'rotate-45 translate-y-2'}`} />
+          <div className={`h-0.5 w-6 bg-gray-900 transition-all duration-300 ${!showControls ? '' : 'opacity-0'}`} />
+          <div className={`h-0.5 w-6 bg-gray-900 transition-all duration-300 ${!showControls ? '' : '-rotate-45 -translate-y-2'}`} />
+        </button>
       </div>
 
-      <ControlSection label="01_Camera System">
-        <div className="grid grid-cols-2 gap-1">
-          {brands.map(brand => (
-            <TactileButton 
-              key={brand}
-              active={selection.brand === brand}
-              onClick={() => onChange('brand', brand)}
-              label={brand}
-            />
-          ))}
+      <div className={`flex-1 overflow-y-auto px-6 lg:px-8 pb-12 transition-opacity duration-300 ${showControls ? 'opacity-100' : 'opacity-0 pointer-events-none lg:opacity-100 lg:pointer-events-auto'}`}>
+        <ControlSection label="01_Camera System">
+          <div className="grid grid-cols-2 gap-1">
+            {brands.map(brand => (
+              <TactileButton 
+                key={brand}
+                active={selection.brand === brand}
+                onClick={() => onChange('brand', brand)}
+                label={brand}
+              />
+            ))}
+          </div>
+        </ControlSection>
+
+        {selection.brand && (
+          <ControlSection label="02_Sensor Unit">
+            <div className="flex flex-col gap-1">
+              {models.map(model => (
+                <TactileButton 
+                  key={model}
+                  active={selection.model === model}
+                  onClick={() => onChange('model', model)}
+                  label={model}
+                />
+              ))}
+            </div>
+          </ControlSection>
+        )}
+
+        {selection.model && (
+          <ControlSection label="03_Sensor Mode">
+            <div className="flex flex-col gap-1">
+              {modes.map(mode => (
+                <TactileButton 
+                  key={mode.name}
+                  active={selection.mode === mode.name}
+                  onClick={() => onChange('mode', mode.name)}
+                  label={mode.name}
+                  sublabel={mode.resolution}
+                />
+              ))}
+            </div>
+          </ControlSection>
+        )}
+
+        {selection.mode && (
+          <>
+            <ControlSection label="04_Lens Squeeze">
+              <div className="grid grid-cols-3 gap-1">
+                {availableSqueezes.map(s => (
+                  <TactileButton 
+                    key={s}
+                    active={selection.squeeze === s}
+                    onClick={() => onChange('squeeze', s)}
+                    label={`${s}x`}
+                  />
+                ))}
+              </div>
+            </ControlSection>
+
+            <ControlSection label="05_Output Crop">
+              <div className="grid grid-cols-2 gap-1">
+                {deliveryRatios.map(r => (
+                  <TactileButton 
+                    key={r}
+                    active={selection.delivery === r}
+                    onClick={() => onChange('delivery', r)}
+                    label={`${r}:1`}
+                    sublabel={r === 2.39 ? 'SCOPE' : r === 1.78 ? 'HD' : ''}
+                  />
+                ))}
+              </div>
+            </ControlSection>
+
+            <ControlSection label="90_Advanced Configuration">
+              <button
+                  onClick={() => onChange('scope90', !selection.scope90)}
+                  className={`
+                      w-full flex items-center justify-between px-4 py-4 rounded-sm transition-all duration-300
+                      ${selection.scope90 
+                          ? 'bg-[#ff4400] text-white shadow-[0_10px_20px_rgba(255,68,0,0.2)]' 
+                          : 'bg-gray-100 text-gray-400 hover:bg-gray-200'}
+                  `}
+              >
+                  <div className="flex flex-col text-left">
+                      <span className="text-[10px] font-black uppercase tracking-widest leading-none mb-1">Feature_Activation</span>
+                      <span className="text-xs font-bold leading-tight">ATLAS_SCOPE_90</span>
+                  </div>
+                  <div className={`w-8 h-4 rounded-full relative transition-colors duration-300 ${selection.scope90 ? 'bg-white/20' : 'bg-gray-300'}`}>
+                      <div className={`absolute top-1 w-2 h-2 rounded-full bg-white transition-all duration-300 ${selection.scope90 ? 'left-5' : 'left-1'}`} />
+                  </div>
+              </button>
+            </ControlSection>
+          </>
+        )}
+
+        <div className="mt-12 text-[8px] font-bold text-gray-300 uppercase tracking-widest leading-loose">
+          designed by ha joon park<br/>
+          Inspiration Braun/Rams<br/>
+          © 2025
         </div>
-      </ControlSection>
-
-      {selection.brand && (
-        <ControlSection label="02_Sensor Unit">
-          <div className="flex flex-col gap-1">
-            {models.map(model => (
-              <TactileButton 
-                key={model}
-                active={selection.model === model}
-                onClick={() => onChange('model', model)}
-                label={model}
-              />
-            ))}
-          </div>
-        </ControlSection>
-      )}
-
-      {selection.model && (
-        <ControlSection label="03_Sensor Mode">
-          <div className="flex flex-col gap-1">
-            {modes.map(mode => (
-              <TactileButton 
-                key={mode.name}
-                active={selection.mode === mode.name}
-                onClick={() => onChange('mode', mode.name)}
-                label={mode.name}
-                sublabel={mode.resolution}
-              />
-            ))}
-          </div>
-        </ControlSection>
-      )}
-
-      {selection.mode && (
-        <>
-          <ControlSection label="04_Lens Squeeze">
-            <div className="grid grid-cols-3 gap-1">
-              {availableSqueezes.map(s => (
-                <TactileButton 
-                  key={s}
-                  active={selection.squeeze === s}
-                  onClick={() => onChange('squeeze', s)}
-                  label={`${s}x`}
-                />
-              ))}
-            </div>
-          </ControlSection>
-
-          <ControlSection label="05_Output Crop">
-            <div className="grid grid-cols-2 gap-1">
-              {deliveryRatios.map(r => (
-                <TactileButton 
-                  key={r}
-                  active={selection.delivery === r}
-                  onClick={() => onChange('delivery', r)}
-                  label={`${r}:1`}
-                  sublabel={r === 2.39 ? 'SCOPE' : r === 1.78 ? 'HD' : ''}
-                />
-              ))}
-            </div>
-          </ControlSection>
-
-          <ControlSection label="90_Advanced Configuration">
-            <button
-                onClick={() => onChange('scope90', !selection.scope90)}
-                className={`
-                    w-full flex items-center justify-between px-4 py-4 rounded-sm transition-all duration-300
-                    ${selection.scope90 
-                        ? 'bg-[#ff4400] text-white shadow-[0_10px_20px_rgba(255,68,0,0.2)]' 
-                        : 'bg-gray-100 text-gray-400 hover:bg-gray-200'}
-                `}
-            >
-                <div className="flex flex-col text-left">
-                    <span className="text-[10px] font-black uppercase tracking-widest leading-none mb-1">Feature_Activation</span>
-                    <span className="text-xs font-bold leading-tight">ATLAS_SCOPE_90</span>
-                </div>
-                <div className={`w-8 h-4 rounded-full relative transition-colors duration-300 ${selection.scope90 ? 'bg-white/20' : 'bg-gray-300'}`}>
-                    <div className={`absolute top-1 w-2 h-2 rounded-full bg-white transition-all duration-300 ${selection.scope90 ? 'left-5' : 'left-1'}`} />
-                </div>
-            </button>
-          </ControlSection>
-        </>
-      )}
-
-      <div className="mt-auto pt-10 text-[8px] font-bold text-gray-300 uppercase tracking-widest leading-loose">
-        designed by ha joon park<br/>
-        Inspiration Braun/Rams<br/>
-        © 2025
       </div>
     </div>
   );

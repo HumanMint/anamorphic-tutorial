@@ -1,4 +1,4 @@
-import React, { useEffect, useRef } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import { animate } from 'animejs';
 
 const Simulator = ({ activeMode, squeeze = 1.0, delivery = 1.78, scope90 = false }) => {
@@ -10,25 +10,31 @@ const Simulator = ({ activeMode, squeeze = 1.0, delivery = 1.78, scope90 = false
   const widthTextRef = useRef(null);
   const heightTextRef = useRef(null);
   const metricsRef = useRef(null);
+  
+  const [windowWidth, setWindowWidth] = useState(window.innerWidth);
 
   const prevModeRef = useRef(activeMode);
   
-  const ABSOLUTE_SCALE = 8; 
+  // Dynamic scale based on window width
+  const ABSOLUTE_SCALE = windowWidth < 380 ? 3 : windowWidth < 768 ? 4 : 8; 
+
+  useEffect(() => {
+    const handleResize = () => setWindowWidth(window.innerWidth);
+    window.addEventListener('resize', handleResize);
+    return () => window.removeEventListener('resize', handleResize);
+  }, []);
 
   useEffect(() => {
     if (!activeMode) return;
 
     // --- SENSOR DIMENSIONS (NATIVE) ---
-    // We keep these native so that 'rotate: 90' actually turns the box portrait
     const sensorW = activeMode.width * ABSOLUTE_SCALE;
     const sensorH = activeMode.height * ABSOLUTE_SCALE;
 
     // --- MATH FOR DESQUEEZE ---
-    // In Scope 90, the lens "sees" what used to be the sensor's height as its new width.
     const effectiveCaptureWidth = scope90 ? activeMode.height : activeMode.width;
     const effectiveCaptureHeight = scope90 ? activeMode.width : activeMode.height;
     
-    // The monitor is an upright display of the processed signal
     const monitorH = effectiveCaptureHeight * ABSOLUTE_SCALE;
     const monitorW = monitorH * (effectiveCaptureWidth / effectiveCaptureHeight) * squeeze;
 
@@ -49,7 +55,6 @@ const Simulator = ({ activeMode, squeeze = 1.0, delivery = 1.78, scope90 = false
     };
 
     // 1. Animate Sensor Box
-    // We maintain native W/H but apply rotation
     animate(sensorRef.current, {
       width: sensorW,
       height: sensorH,
@@ -120,7 +125,7 @@ const Simulator = ({ activeMode, squeeze = 1.0, delivery = 1.78, scope90 = false
 
     prevModeRef.current = activeMode;
 
-  }, [activeMode, squeeze, delivery, scope90]);
+  }, [activeMode, squeeze, delivery, scope90, ABSOLUTE_SCALE]);
 
   if (!activeMode) {
     return (
@@ -134,7 +139,7 @@ const Simulator = ({ activeMode, squeeze = 1.0, delivery = 1.78, scope90 = false
   }
 
   return (
-    <div className="flex-1 bg-[#f2f2f2] flex flex-col items-center justify-center p-12 gap-16 border-l border-gray-200 overflow-hidden relative">
+    <div className="flex-1 bg-[#f2f2f2] flex flex-col items-center justify-start lg:justify-center p-6 lg:p-12 gap-12 lg:gap-16 border-l-0 lg:border-l border-gray-200 overflow-y-auto lg:overflow-hidden relative">
       
       {/* STATIC PHYSICAL GRID */}
       <div 
@@ -147,25 +152,25 @@ const Simulator = ({ activeMode, squeeze = 1.0, delivery = 1.78, scope90 = false
       />
 
       {/* SECTION 1: SENSOR CAPTURE */}
-      <div className="flex flex-col items-center z-10 w-full">
-        <div className="mb-6 flex gap-12 items-end w-full max-w-[500px]">
+      <div className="flex flex-col items-center z-10 w-full shrink-0">
+        <div className="mb-4 lg:mb-6 flex gap-6 lg:gap-12 items-end w-full max-w-[500px]">
           <div className="flex-1">
-            <div className="text-[9px] font-black uppercase tracking-widest text-gray-400 mb-2 underline decoration-gray-200 underline-offset-4">01_Focal_Plane</div>
-            <div className="text-xs font-bold text-gray-900 tracking-tighter">
+            <div className="text-[8px] lg:text-[9px] font-black uppercase tracking-widest text-gray-400 mb-1 lg:mb-2 underline decoration-gray-200 underline-offset-4">01_Focal_Plane</div>
+            <div className="text-[10px] lg:text-xs font-bold text-gray-900 tracking-tighter">
                 {scope90 ? 'SCOPE_90_MOUNT' : 'OPTICAL_CAPTURE'}
             </div>
           </div>
           <div className="relative">
             <div ref={metricsRef} className="text-right flex items-baseline gap-1 font-mono text-gray-600 origin-center">
-               <div ref={widthTextRef} className="text-sm font-bold origin-right">{activeMode.width.toFixed(2)}</div>
-               <div className="text-[10px] text-gray-300">×</div>
-               <div ref={heightTextRef} className="text-sm font-bold origin-right">{activeMode.height.toFixed(2)}</div>
-               <div className="text-[10px] ml-1 text-gray-400 font-sans font-black uppercase">MM</div>
+               <div ref={widthTextRef} className="text-xs lg:text-sm font-bold origin-right">{activeMode.width.toFixed(2)}</div>
+               <div className="text-[8px] lg:text-[10px] text-gray-300">×</div>
+               <div ref={heightTextRef} className="text-xs lg:text-sm font-bold origin-right">{activeMode.height.toFixed(2)}</div>
+               <div className="text-[8px] lg:text-[10px] ml-1 text-gray-400 font-sans font-black uppercase">MM</div>
             </div>
           </div>
         </div>
 
-        <div className="relative flex items-center justify-center min-h-[340px] w-full">
+        <div className="relative flex items-center justify-center min-h-[200px] lg:min-h-[340px] w-full">
           <div 
             ref={sensorRef}
             className="bg-white border-[2px] border-gray-900 shadow-[20px_20px_60px_rgba(0,0,0,0.05)] flex items-center justify-center overflow-hidden relative"
@@ -174,46 +179,46 @@ const Simulator = ({ activeMode, squeeze = 1.0, delivery = 1.78, scope90 = false
             <div ref={sensorStabilizerRef} className="flex items-center justify-center">
                 <div 
                   ref={sensorSubjectRef}
-                  className="w-32 h-32 rounded-full border-[6px] border-[#ff4400]"
+                  className="w-20 lg:w-32 h-20 lg:h-32 rounded-full border-[4px] lg:border-[6px] border-[#ff4400]"
                 />
             </div>
           </div>
-          <div className="absolute -left-20 top-1/2 -translate-y-1/2 -rotate-90 text-[7px] font-black uppercase tracking-[0.5em] text-gray-400 pointer-events-none whitespace-nowrap">
+          <div className="absolute -left-12 lg:-left-20 top-1/2 -translate-y-1/2 -rotate-90 text-[6px] lg:text-[7px] font-black uppercase tracking-[0.5em] text-gray-400 pointer-events-none whitespace-nowrap">
             {scope90 ? 'SCOPE_90_MOUNT' : 'Standard_Mount'}
           </div>
         </div>
       </div>
 
       {/* SECTION 2: DIGITAL OUTPUT */}
-      <div className="flex flex-col items-center z-10 w-full">
-        <div className="mb-6 flex gap-12 items-end w-full max-w-[500px]">
+      <div className="flex flex-col items-center z-10 w-full shrink-0">
+        <div className="mb-4 lg:mb-6 flex gap-6 lg:gap-12 items-end w-full max-w-[500px]">
           <div className="flex-1">
-            <div className="text-[9px] font-black uppercase tracking-widest text-gray-400 mb-2 underline decoration-gray-200 underline-offset-4">02_Signal_Output</div>
-            <div className="text-xs font-bold text-gray-900 tracking-tighter">DESQUEEZED_MONITOR</div>
+            <div className="text-[8px] lg:text-[9px] font-black uppercase tracking-widest text-gray-400 mb-1 lg:mb-2 underline decoration-gray-200 underline-offset-4">02_Signal_Output</div>
+            <div className="text-[10px] lg:text-xs font-bold text-gray-900 tracking-tighter">DESQUEEZED_MONITOR</div>
           </div>
           <div className="text-right font-mono flex flex-col items-end">
-             <div className="text-[8px] font-black text-gray-400 uppercase tracking-widest mb-0.5">Configuration</div>
-             <div className="text-sm text-[#ff4400] font-black tracking-tighter leading-none">
+             <div className="text-[7px] lg:text-[8px] font-black text-gray-400 uppercase tracking-widest mb-0.5">Configuration</div>
+             <div className="text-xs lg:text-sm text-[#ff4400] font-black tracking-tighter leading-none">
                 {scope90 ? '90° DESQ' : `${Number(squeeze).toFixed(2)}X`}
              </div>
           </div>
         </div>
 
-        <div className="relative flex items-center justify-center min-h-[340px] w-full">
+        <div className="relative flex items-center justify-center min-h-[200px] lg:min-h-[340px] w-full">
           <div 
             ref={monitorRef}
             className="bg-[#111] shadow-2xl relative overflow-hidden ring-1 ring-white/10"
             style={{ width: 100, height: 100 }}
           >
             <div className="absolute inset-0 flex items-center justify-center">
-                <div className="w-32 h-32 rounded-full border-[5px] border-white opacity-[0.1]" />
+                <div className="w-20 lg:w-32 h-20 lg:h-32 rounded-full border-[3px] lg:border-[5px] border-white opacity-[0.1]" />
             </div>
 
             <div 
               ref={cropRef}
               className="absolute border-[1px] border-[#ff4400]/80 shadow-[0_0_20px_rgba(255,68,0,0.4)] z-10"
             >
-              <div className="absolute bottom-0 right-0 p-1.5 text-[7px] font-black text-[#ff4400] uppercase bg-gray-900/90 tracking-widest text-right">
+              <div className="absolute bottom-0 right-0 p-1 lg:p-1.5 text-[6px] lg:text-[7px] font-black text-[#ff4400] uppercase bg-gray-900/90 tracking-widest text-right">
                 {delivery.toFixed(2)}:1_OUT
               </div>
             </div>

@@ -42,6 +42,7 @@ class ErrorBoundary extends Component {
 function App() {
   const [data, setData] = useState(null);
   const [loading, setLoading] = useState(true);
+  const [showControls, setShowControls] = useState(true);
   const [selection, setSelection] = useState({
     brand: '',
     model: '',
@@ -108,11 +109,13 @@ function App() {
 
   return (
     <ErrorBoundary>
-        <div className="flex h-screen w-screen bg-[#f2f2f2] text-gray-800 font-sans overflow-hidden">
+        <div className="flex flex-col-reverse lg:flex-row h-screen w-screen bg-[#f2f2f2] text-gray-800 font-sans overflow-hidden">
         <Controls 
             data={data}
             selection={selection}
             onChange={handleChange}
+            showControls={showControls}
+            setShowControls={setShowControls}
         />
         <Simulator 
             activeMode={activeMode}
