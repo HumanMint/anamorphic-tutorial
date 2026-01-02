@@ -2,6 +2,8 @@
 
 An interactive, high-precision optical simulator for cinematography, inspired by the industrial design philosophy of Dieter Rams and the Atlas Lens Co. ecosystem.
 
+https://humanmint.github.io/anamorphic-tutorial/
+
 ## Overview
 
 **Anamorphic Sim** is an educational tool designed to visualize the complex relationship between camera sensor geometry and anamorphic lens optics. It allows cinematographers to see how different sensor modes (from Super 35 to 4:3 Large Format) capture light and how anamorphic desqueezing transforms that data into a cinematic widescreen format.
