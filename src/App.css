@@ -1,4 +1,10 @@
-/* Minimalist Scrollbars */
+/* Standards-based scrollbars (Firefox 64+) */
+* {
+  scrollbar-width: thin;
+  scrollbar-color: #e5e5e5 transparent;
+}
+
+/* WebKit scrollbars (Chrome, Safari, Edge) */
 ::-webkit-scrollbar {
   width: 4px;
   height: 4px;
@@ -17,11 +23,27 @@
   background: #d1d1d1;
 }
 
-html, body, #root {
+/* Global resets */
+html {
+  height: 100%;
+  overflow: hidden;
+}
+
+body, #root {
   height: 100%;
   width: 100%;
   margin: 0;
   padding: 0;
-  overflow: hidden;
+  overflow: auto;
   background-color: #f2f2f2;
+}
+
+/* Loading animation */
+@keyframes loading-pulse {
+  0%, 100% { opacity: 0.2; transform: scale(0.8); }
+  50% { opacity: 1; transform: scale(1.2); }
+}
+
+.loading-dot {
+  animation: loading-pulse 1.2s ease-in-out infinite;
 }
