@@ -1,5 +1,6 @@
-import React, { useEffect, useRef, useState } from 'react';
+import React, { useEffect, useRef, useState, useMemo } from 'react';
 import { animate } from 'animejs';
+import { BREAKPOINTS, SCALE_FACTORS, ANIMATION, COLORS, RESIZE_DEBOUNCE_MS } from '../utils/constants';
 
 const Simulator = ({ activeMode, squeeze = 1.0, delivery = 1.78, scope90 = false }) => {
   const sensorRef = useRef(null);
@@ -10,22 +11,45 @@ const Simulator = ({ activeMode, squeeze = 1.0, delivery = 1.78, scope90 = false
   const widthTextRef = useRef(null);
   const heightTextRef = useRef(null);
   const metricsRef = useRef(null);
-  
+  const animationsRef = useRef([]);
+
   const [windowWidth, setWindowWidth] = useState(window.innerWidth);
 
   const prevModeRef = useRef(activeMode);
-  
-  // Dynamic scale based on window width
-  const ABSOLUTE_SCALE = windowWidth < 380 ? 3 : windowWidth < 768 ? 4 : 8; 
 
+  const prefersReducedMotion = useRef(
+    window.matchMedia('(prefers-reduced-motion: reduce)').matches
+  );
+
+  // Dynamic scale based on window width
+  const ABSOLUTE_SCALE = useMemo(() => {
+    if (windowWidth < BREAKPOINTS.SM) return SCALE_FACTORS.SM;
+    if (windowWidth < BREAKPOINTS.MD) return SCALE_FACTORS.MD;
+    return SCALE_FACTORS.LG;
+  }, [windowWidth]);
+
+  // Debounced resize handler
   useEffect(() => {
-    const handleResize = () => setWindowWidth(window.innerWidth);
+    let timeoutId;
+    const handleResize = () => {
+      clearTimeout(timeoutId);
+      timeoutId = setTimeout(() => setWindowWidth(window.innerWidth), RESIZE_DEBOUNCE_MS);
+    };
     window.addEventListener('resize', handleResize);
-    return () => window.removeEventListener('resize', handleResize);
+    return () => {
+      clearTimeout(timeoutId);
+      window.removeEventListener('resize', handleResize);
+    };
   }, []);
 
   useEffect(() => {
     if (!activeMode) return;
+
+    // Cancel previous animations before starting new ones
+    animationsRef.current.forEach(anim => {
+      if (anim && typeof anim.pause === 'function') anim.pause();
+    });
+    animationsRef.current = [];
 
     // --- SENSOR DIMENSIONS (NATIVE) ---
     const sensorW = activeMode.width * ABSOLUTE_SCALE;
@@ -34,7 +58,7 @@ const Simulator = ({ activeMode, squeeze = 1.0, delivery = 1.78, scope90 = false
     // --- MATH FOR DESQUEEZE ---
     const effectiveCaptureWidth = scope90 ? activeMode.height : activeMode.width;
     const effectiveCaptureHeight = scope90 ? activeMode.width : activeMode.height;
-    
+
     const monitorH = effectiveCaptureHeight * ABSOLUTE_SCALE;
     const monitorW = monitorH * (effectiveCaptureWidth / effectiveCaptureHeight) * squeeze;
 
@@ -49,73 +73,88 @@ const Simulator = ({ activeMode, squeeze = 1.0, delivery = 1.78, scope90 = false
     }
 
     // --- ANIMATIONS ---
-    const elasticConfig = {
-      ease: 'outElastic(1, 0.6)',
-      duration: 1400
-    };
+    const elasticConfig = prefersReducedMotion.current
+      ? ANIMATION.REDUCED_MOTION
+      : ANIMATION.ELASTIC;
 
     // 1. Animate Sensor Box
-    animate(sensorRef.current, {
-      width: sensorW,
-      height: sensorH,
-      rotate: scope90 ? 90 : 0,
-      ...elasticConfig
-    });
+    animationsRef.current.push(
+      animate(sensorRef.current, {
+        width: sensorW,
+        height: sensorH,
+        rotate: scope90 ? 90 : 0,
+        ...elasticConfig
+      })
+    );
 
     // 2. Animate Stabilizer (Counter-rotation)
-    animate(sensorStabilizerRef.current, {
-      rotate: scope90 ? -90 : 0,
-      ...elasticConfig
-    });
+    animationsRef.current.push(
+      animate(sensorStabilizerRef.current, {
+        rotate: scope90 ? -90 : 0,
+        ...elasticConfig
+      })
+    );
 
     // 3. Animate Subject (The Optical Squeeze)
-    animate(sensorSubjectRef.current, {
-      scaleX: 1 / squeeze,
-      ...elasticConfig
-    });
+    animationsRef.current.push(
+      animate(sensorSubjectRef.current, {
+        scaleX: 1 / squeeze,
+        ...elasticConfig
+      })
+    );
 
     // 4. Animate Metrics Rotation
-    animate(metricsRef.current, {
-      rotate: scope90 ? 90 : 0,
-      ...elasticConfig
-    });
+    animationsRef.current.push(
+      animate(metricsRef.current, {
+        rotate: scope90 ? 90 : 0,
+        ...elasticConfig
+      })
+    );
 
     // 5. Animate Monitor Box
-    animate(monitorRef.current, {
-      width: monitorW,
-      height: monitorH,
-      ...elasticConfig
-    });
+    animationsRef.current.push(
+      animate(monitorRef.current, {
+        width: monitorW,
+        height: monitorH,
+        ...elasticConfig
+      })
+    );
 
     // 6. Animate Crop Box
-    animate(cropRef.current, {
-      width: cropW,
-      height: cropH,
-      left: (monitorW - cropW) / 2,
-      top: (monitorH - cropH) / 2,
-      ...elasticConfig
-    });
+    animationsRef.current.push(
+      animate(cropRef.current, {
+        width: cropW,
+        height: cropH,
+        left: (monitorW - cropW) / 2,
+        top: (monitorH - cropH) / 2,
+        ...elasticConfig
+      })
+    );
 
     // --- REACTIVE TYPOGRAPHY ---
     const animateMetric = (el, current, prev) => {
       if (!el || current === prev) return;
       const isIncrease = current > prev;
-      const accentColor = isIncrease ? '#ff4400' : '#3d5afe';
+      const accentColor = isIncrease ? COLORS.INCREASE : COLORS.DECREASE;
       const targetScale = isIncrease ? 1.4 : 0.7;
+
+      if (prefersReducedMotion.current) {
+        el.style.color = COLORS.TEXT_DEFAULT;
+        return;
+      }
 
       animate(el, {
         scale: targetScale,
         color: accentColor,
-        duration: 300,
-        ease: 'outQuart'
+        ...ANIMATION.METRIC_POP
       }).then(() => {
-        animate(el, {
+        if (!el.isConnected) return;
+        return animate(el, {
           scale: 1,
-          color: '#4b5563',
-          duration: 800,
-          ease: 'outElastic(1, 0.5)'
+          color: COLORS.TEXT_DEFAULT,
+          ...ANIMATION.METRIC_SETTLE
         });
-      });
+      }).catch(() => {}); // swallow animation interruptions
     };
 
     if (prevModeRef.current) {
@@ -124,6 +163,13 @@ const Simulator = ({ activeMode, squeeze = 1.0, delivery = 1.78, scope90 = false
     }
 
     prevModeRef.current = activeMode;
+
+    // Cleanup on unmount or before next effect run
+    return () => {
+      animationsRef.current.forEach(anim => {
+        if (anim && typeof anim.pause === 'function') anim.pause();
+      });
+    };
 
   }, [activeMode, squeeze, delivery, scope90, ABSOLUTE_SCALE]);
 
@@ -140,15 +186,15 @@ const Simulator = ({ activeMode, squeeze = 1.0, delivery = 1.78, scope90 = false
 
   return (
     <div className="flex-1 bg-[#f2f2f2] flex flex-col items-center justify-start lg:justify-center p-6 lg:p-12 gap-12 lg:gap-16 border-l-0 lg:border-l border-gray-200 overflow-y-auto lg:overflow-hidden relative">
-      
+
       {/* STATIC PHYSICAL GRID */}
-      <div 
-        className="absolute inset-0 opacity-[0.04] pointer-events-none" 
-        style={{ 
+      <div
+        className="absolute inset-0 opacity-[0.04] pointer-events-none"
+        style={{
           backgroundImage: 'linear-gradient(#000 1px, transparent 1px), linear-gradient(90deg, #000 1px, transparent 1px)',
           backgroundSize: `${10 * ABSOLUTE_SCALE}px ${10 * ABSOLUTE_SCALE}px`,
           backgroundPosition: 'center center'
-        }} 
+        }}
       />
 
       {/* SECTION 1: SENSOR CAPTURE */}
@@ -161,29 +207,29 @@ const Simulator = ({ activeMode, squeeze = 1.0, delivery = 1.78, scope90 = false
             </div>
           </div>
           <div className="relative">
-            <div ref={metricsRef} className="text-right flex items-baseline gap-1 font-mono text-gray-600 origin-center">
+            <div ref={metricsRef} aria-live="polite" aria-label="Sensor dimensions" className="text-right flex items-baseline gap-1 font-mono text-gray-600 origin-center">
                <div ref={widthTextRef} className="text-xs lg:text-sm font-bold origin-right">{activeMode.width.toFixed(2)}</div>
-               <div className="text-[8px] lg:text-[10px] text-gray-300">×</div>
+               <div className="text-[8px] lg:text-[10px] text-gray-300">&times;</div>
                <div ref={heightTextRef} className="text-xs lg:text-sm font-bold origin-right">{activeMode.height.toFixed(2)}</div>
                <div className="text-[8px] lg:text-[10px] ml-1 text-gray-400 font-sans font-black uppercase">MM</div>
             </div>
           </div>
         </div>
 
-        <div className="relative flex items-center justify-center min-h-[200px] lg:min-h-[340px] w-full">
-          <div 
+        <div className="relative flex items-center justify-center min-h-[150px] lg:min-h-[340px] w-full">
+          <div
             ref={sensorRef}
             className="bg-white border-[2px] border-gray-900 shadow-[20px_20px_60px_rgba(0,0,0,0.05)] flex items-center justify-center overflow-hidden relative"
             style={{ width: 100, height: 100 }}
           >
             <div ref={sensorStabilizerRef} className="flex items-center justify-center">
-                <div 
+                <div
                   ref={sensorSubjectRef}
                   className="w-20 lg:w-32 h-20 lg:h-32 rounded-full border-[4px] lg:border-[6px] border-[#ff4400]"
                 />
             </div>
           </div>
-          <div className="absolute -left-12 lg:-left-20 top-1/2 -translate-y-1/2 -rotate-90 text-[6px] lg:text-[7px] font-black uppercase tracking-[0.5em] text-gray-400 pointer-events-none whitespace-nowrap">
+          <div className="absolute -left-12 lg:-left-20 top-1/2 -translate-y-1/2 -rotate-90 text-[10px] lg:text-[11px] font-black uppercase tracking-[0.5em] text-gray-400 pointer-events-none whitespace-nowrap">
             {scope90 ? 'SCOPE_90_MOUNT' : 'Standard_Mount'}
           </div>
         </div>
@@ -197,15 +243,15 @@ const Simulator = ({ activeMode, squeeze = 1.0, delivery = 1.78, scope90 = false
             <div className="text-[10px] lg:text-xs font-bold text-gray-900 tracking-tighter">DESQUEEZED_MONITOR</div>
           </div>
           <div className="text-right font-mono flex flex-col items-end">
-             <div className="text-[7px] lg:text-[8px] font-black text-gray-400 uppercase tracking-widest mb-0.5">Configuration</div>
+             <div className="text-[10px] lg:text-[11px] font-black text-gray-400 uppercase tracking-widest mb-0.5">Configuration</div>
              <div className="text-xs lg:text-sm text-[#ff4400] font-black tracking-tighter leading-none">
-                {scope90 ? '90° DESQ' : `${Number(squeeze).toFixed(2)}X`}
+                {scope90 ? '90\u00B0 DESQ' : `${Number(squeeze).toFixed(2)}X`}
              </div>
           </div>
         </div>
 
-        <div className="relative flex items-center justify-center min-h-[200px] lg:min-h-[340px] w-full">
-          <div 
+        <div className="relative flex items-center justify-center min-h-[150px] lg:min-h-[340px] w-full">
+          <div
             ref={monitorRef}
             className="bg-[#111] shadow-2xl relative overflow-hidden ring-1 ring-white/10"
             style={{ width: 100, height: 100 }}
@@ -214,11 +260,11 @@ const Simulator = ({ activeMode, squeeze = 1.0, delivery = 1.78, scope90 = false
                 <div className="w-20 lg:w-32 h-20 lg:h-32 rounded-full border-[3px] lg:border-[5px] border-white opacity-[0.1]" />
             </div>
 
-            <div 
+            <div
               ref={cropRef}
               className="absolute border-[1px] border-[#ff4400]/80 shadow-[0_0_20px_rgba(255,68,0,0.4)] z-10"
             >
-              <div className="absolute bottom-0 right-0 p-1 lg:p-1.5 text-[6px] lg:text-[7px] font-black text-[#ff4400] uppercase bg-gray-900/90 tracking-widest text-right">
+              <div className="absolute bottom-0 right-0 p-1 lg:p-1.5 text-[10px] lg:text-[11px] font-black text-[#ff4400] uppercase bg-gray-900/90 tracking-widest text-right">
                 {delivery.toFixed(2)}:1_OUT
               </div>
             </div>
@@ -230,4 +276,4 @@ const Simulator = ({ activeMode, squeeze = 1.0, delivery = 1.78, scope90 = false
   );
 };
 
-export default Simulator;
+export default React.memo(Simulator);

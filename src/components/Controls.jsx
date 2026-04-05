@@ -1,4 +1,6 @@
 import React, { useMemo } from 'react';
+import clsx from 'clsx';
+import { DELIVERY_RATIOS } from '../utils/constants';
 
 const ControlSection = ({ label, children }) => (
   <div className="mb-10">
@@ -11,19 +13,21 @@ const ControlSection = ({ label, children }) => (
   </div>
 );
 
-const TactileButton = ({ active, onClick, children, label, sublabel }) => (
+const TactileButton = ({ active, onClick, label, sublabel }) => (
   <button
     onClick={onClick}
-    className={`
-      flex items-center justify-between px-4 py-3 rounded-sm transition-all duration-200 text-left
-      ${active 
-        ? 'bg-[#1a1a1a] text-white' 
-        : 'bg-white text-gray-600 hover:bg-gray-50 border border-gray-100'}
-    `}
+    aria-pressed={active}
+    className={clsx(
+      'flex items-center justify-between px-4 py-3 rounded-sm transition-all duration-200 text-left',
+      'focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#ff4400]',
+      active
+        ? 'bg-[#1a1a1a] text-white'
+        : 'bg-white text-gray-600 hover:bg-gray-50 border border-gray-100'
+    )}
   >
     <div className="flex flex-col">
       <span className="text-xs font-bold leading-tight">{label}</span>
-      {sublabel && <span className={`text-[9px] ${active ? 'text-gray-400' : 'text-gray-400'} font-mono mt-0.5`}>{sublabel}</span>}
+      {sublabel && <span className="text-[9px] text-gray-400 font-mono mt-0.5">{sublabel}</span>}
     </div>
     {active && <div className="w-1.5 h-1.5 rounded-full bg-[#ff4400]" />}
   </button>
@@ -31,7 +35,7 @@ const TactileButton = ({ active, onClick, children, label, sublabel }) => (
 
 const Controls = ({ data, selection, onChange, showControls, setShowControls }) => {
   const brands = useMemo(() => Object.keys(data || {}), [data]);
-  
+
   const models = useMemo(() => {
     if (!selection.brand || !data) return [];
     return Object.keys(data[selection.brand] || {});
@@ -50,14 +54,12 @@ const Controls = ({ data, selection, onChange, showControls, setShowControls }) 
     return [...new Set(squeezes)].sort((a, b) => a - b);
   }, [modes, selection.mode]);
 
-  const deliveryRatios = [1.78, 1.90, 2.39, 2.76];
-
   return (
-    <div 
-      className={`
-        w-full lg:w-[340px] bg-white flex flex-col transition-all duration-500 ease-in-out border-t lg:border-t-0 lg:border-r border-gray-200 shrink-0
-        ${showControls ? 'h-[60vh] lg:h-full' : 'h-[80px] lg:h-full'}
-      `}
+    <div
+      className={clsx(
+        'w-full lg:w-[340px] bg-white flex flex-col transition-all duration-500 ease-in-out border-t lg:border-t-0 lg:border-r border-gray-200 shrink-0',
+        showControls ? 'max-h-[60vh] lg:max-h-full lg:h-full' : 'h-[80px] lg:h-full'
+      )}
     >
       {/* HEADER & MOBILE TOGGLE */}
       <div className="p-6 lg:p-8 flex items-center justify-between shrink-0">
@@ -69,22 +71,33 @@ const Controls = ({ data, selection, onChange, showControls, setShowControls }) 
             by Ha Joon Park
           </div>
         </div>
-        
-        <button 
+
+        <button
           onClick={() => setShowControls(!showControls)}
-          className="lg:hidden flex flex-col gap-1.5 p-2 group"
+          className="lg:hidden flex flex-col gap-1.5 p-3 group"
+          aria-label={showControls ? 'Close controls menu' : 'Open controls menu'}
+          aria-expanded={showControls}
+          aria-controls="controls-panel"
         >
-          <div className={`h-0.5 w-6 bg-gray-900 transition-all duration-300 ${!showControls ? '' : 'rotate-45 translate-y-2'}`} />
-          <div className={`h-0.5 w-6 bg-gray-900 transition-all duration-300 ${!showControls ? '' : 'opacity-0'}`} />
-          <div className={`h-0.5 w-6 bg-gray-900 transition-all duration-300 ${!showControls ? '' : '-rotate-45 -translate-y-2'}`} />
+          <div className={clsx('h-0.5 w-6 bg-gray-900 transition-all duration-300', showControls && 'rotate-45 translate-y-2')} />
+          <div className={clsx('h-0.5 w-6 bg-gray-900 transition-all duration-300', showControls && 'opacity-0')} />
+          <div className={clsx('h-0.5 w-6 bg-gray-900 transition-all duration-300', showControls && '-rotate-45 -translate-y-2')} />
         </button>
       </div>
 
-      <div className={`flex-1 overflow-y-auto px-6 lg:px-8 pb-12 transition-opacity duration-300 ${showControls ? 'opacity-100' : 'opacity-0 pointer-events-none lg:opacity-100 lg:pointer-events-auto'}`}>
+      <div
+        id="controls-panel"
+        role="region"
+        aria-label="Camera controls"
+        className={clsx(
+          'flex-1 overflow-y-auto px-6 lg:px-8 pb-12 transition-opacity duration-300',
+          showControls ? 'opacity-100' : 'opacity-0 pointer-events-none lg:opacity-100 lg:pointer-events-auto'
+        )}
+      >
         <ControlSection label="01_Camera System">
           <div className="grid grid-cols-2 gap-1">
             {brands.map(brand => (
-              <TactileButton 
+              <TactileButton
                 key={brand}
                 active={selection.brand === brand}
                 onClick={() => onChange('brand', brand)}
@@ -98,7 +111,7 @@ const Controls = ({ data, selection, onChange, showControls, setShowControls }) 
           <ControlSection label="02_Sensor Unit">
             <div className="flex flex-col gap-1">
               {models.map(model => (
-                <TactileButton 
+                <TactileButton
                   key={model}
                   active={selection.model === model}
                   onClick={() => onChange('model', model)}
@@ -113,7 +126,7 @@ const Controls = ({ data, selection, onChange, showControls, setShowControls }) 
           <ControlSection label="03_Sensor Mode">
             <div className="flex flex-col gap-1">
               {modes.map(mode => (
-                <TactileButton 
+                <TactileButton
                   key={mode.name}
                   active={selection.mode === mode.name}
                   onClick={() => onChange('mode', mode.name)}
@@ -130,7 +143,7 @@ const Controls = ({ data, selection, onChange, showControls, setShowControls }) 
             <ControlSection label="04_Lens Squeeze">
               <div className="grid grid-cols-3 gap-1">
                 {availableSqueezes.map(s => (
-                  <TactileButton 
+                  <TactileButton
                     key={s}
                     active={selection.squeeze === s}
                     onClick={() => onChange('squeeze', s)}
@@ -142,13 +155,13 @@ const Controls = ({ data, selection, onChange, showControls, setShowControls }) 
 
             <ControlSection label="05_Output Crop">
               <div className="grid grid-cols-2 gap-1">
-                {deliveryRatios.map(r => (
-                  <TactileButton 
-                    key={r}
-                    active={selection.delivery === r}
-                    onClick={() => onChange('delivery', r)}
-                    label={`${r}:1`}
-                    sublabel={r === 2.39 ? 'SCOPE' : r === 1.78 ? 'HD' : ''}
+                {DELIVERY_RATIOS.map(r => (
+                  <TactileButton
+                    key={r.value}
+                    active={selection.delivery === r.value}
+                    onClick={() => onChange('delivery', r.value)}
+                    label={r.label}
+                    sublabel={r.sublabel}
                   />
                 ))}
               </div>
@@ -156,20 +169,24 @@ const Controls = ({ data, selection, onChange, showControls, setShowControls }) 
 
             <ControlSection label="90_Advanced Configuration">
               <button
+                  role="switch"
+                  aria-checked={selection.scope90}
+                  aria-label="Atlas Scope 90 mode"
                   onClick={() => onChange('scope90', !selection.scope90)}
-                  className={`
-                      w-full flex items-center justify-between px-4 py-4 rounded-sm transition-all duration-300
-                      ${selection.scope90 
-                          ? 'bg-[#ff4400] text-white shadow-[0_10px_20px_rgba(255,68,0,0.2)]' 
-                          : 'bg-gray-100 text-gray-400 hover:bg-gray-200'}
-                  `}
+                  className={clsx(
+                      'w-full flex items-center justify-between px-4 py-4 rounded-sm transition-all duration-300',
+                      'focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#ff4400]',
+                      selection.scope90
+                          ? 'bg-[#ff4400] text-white shadow-[0_10px_20px_rgba(255,68,0,0.2)]'
+                          : 'bg-gray-100 text-gray-400 hover:bg-gray-200'
+                  )}
               >
                   <div className="flex flex-col text-left">
                       <span className="text-[10px] font-black uppercase tracking-widest leading-none mb-1">Feature_Activation</span>
                       <span className="text-xs font-bold leading-tight">ATLAS_SCOPE_90</span>
                   </div>
-                  <div className={`w-8 h-4 rounded-full relative transition-colors duration-300 ${selection.scope90 ? 'bg-white/20' : 'bg-gray-300'}`}>
-                      <div className={`absolute top-1 w-2 h-2 rounded-full bg-white transition-all duration-300 ${selection.scope90 ? 'left-5' : 'left-1'}`} />
+                  <div className={clsx('w-8 h-4 rounded-full relative transition-colors duration-300', selection.scope90 ? 'bg-white/20' : 'bg-gray-300')}>
+                      <div className={clsx('absolute top-1 w-2 h-2 rounded-full bg-white transition-all duration-300', selection.scope90 ? 'left-5' : 'left-1')} />
                   </div>
               </button>
             </ControlSection>
@@ -179,11 +196,11 @@ const Controls = ({ data, selection, onChange, showControls, setShowControls }) 
         <div className="mt-12 text-[8px] font-bold text-gray-300 uppercase tracking-widest leading-loose">
           designed by ha joon park<br/>
           Inspiration Braun/Rams<br/>
-          © 2025
+          &copy; 2025
         </div>
       </div>
     </div>
   );
 };
 
-export default Controls;
+export default React.memo(Controls);
