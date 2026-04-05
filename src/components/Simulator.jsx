@@ -17,10 +17,6 @@ const Simulator = ({ activeMode, squeeze = 1.0, delivery = 1.78, scope90 = false
 
   const prevModeRef = useRef(activeMode);
 
-  const prefersReducedMotion = useRef(
-    window.matchMedia('(prefers-reduced-motion: reduce)').matches
-  );
-
   // Dynamic scale based on window width
   const ABSOLUTE_SCALE = useMemo(() => {
     if (windowWidth < BREAKPOINTS.SM) return SCALE_FACTORS.SM;
@@ -73,9 +69,7 @@ const Simulator = ({ activeMode, squeeze = 1.0, delivery = 1.78, scope90 = false
     }
 
     // --- ANIMATIONS ---
-    const elasticConfig = prefersReducedMotion.current
-      ? ANIMATION.REDUCED_MOTION
-      : ANIMATION.ELASTIC;
+    const elasticConfig = ANIMATION.ELASTIC;
 
     // 1. Animate Sensor Box
     animationsRef.current.push(
@@ -137,11 +131,6 @@ const Simulator = ({ activeMode, squeeze = 1.0, delivery = 1.78, scope90 = false
       const isIncrease = current > prev;
       const accentColor = isIncrease ? COLORS.INCREASE : COLORS.DECREASE;
       const targetScale = isIncrease ? 1.4 : 0.7;
-
-      if (prefersReducedMotion.current) {
-        el.style.color = COLORS.TEXT_DEFAULT;
-        return;
-      }
 
       animate(el, {
         scale: targetScale,
