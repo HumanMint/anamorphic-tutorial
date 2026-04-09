@@ -1,6 +1,8 @@
 import React, { useMemo } from 'react';
 import clsx from 'clsx';
+import { Download } from 'lucide-react';
 import { DELIVERY_RATIOS } from '../utils/constants';
+import { exportConfigCard } from '../utils/exportCard';
 
 const ControlSection = ({ label, children }) => (
   <div className="mb-10">
@@ -189,7 +191,46 @@ const Controls = ({ data, selection, onChange, showControls, setShowControls }) 
                       <div className={clsx('absolute top-1 w-2 h-2 rounded-full bg-white transition-all duration-300', selection.scope90 ? 'left-5' : 'left-1')} />
                   </div>
               </button>
+
+              <button
+                  role="switch"
+                  aria-checked={selection.verticalLens}
+                  aria-label="Vertical lens orientation mode"
+                  onClick={() => onChange('verticalLens', !selection.verticalLens)}
+                  className={clsx(
+                      'w-full flex items-center justify-between px-4 py-4 rounded-sm transition-all duration-300 mt-1',
+                      'focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#ff4400]',
+                      selection.verticalLens
+                          ? 'bg-[#ff4400] text-white shadow-[0_10px_20px_rgba(255,68,0,0.2)]'
+                          : 'bg-gray-100 text-gray-400 hover:bg-gray-200'
+                  )}
+              >
+                  <div className="flex flex-col text-left">
+                      <span className="text-[10px] font-black uppercase tracking-widest leading-none mb-1">Feature_Activation</span>
+                      <span className="text-xs font-bold leading-tight">VERTICAL_LENS</span>
+                  </div>
+                  <div className={clsx('w-8 h-4 rounded-full relative transition-colors duration-300', selection.verticalLens ? 'bg-white/20' : 'bg-gray-300')}>
+                      <div className={clsx('absolute top-1 w-2 h-2 rounded-full bg-white transition-all duration-300', selection.verticalLens ? 'left-5' : 'left-1')} />
+                  </div>
+              </button>
             </ControlSection>
+
+            <div className="mb-10">
+              <button
+                onClick={() => exportConfigCard({
+                  camera: { brand: selection.brand, model: selection.model, mode: selection.mode },
+                  activeMode: modes.find(m => m.name === selection.mode),
+                  squeeze: selection.squeeze,
+                  delivery: selection.delivery,
+                  scope90: selection.scope90,
+                  verticalLens: selection.verticalLens
+                })}
+                className="w-full flex items-center justify-center gap-2 px-4 py-3 rounded-sm bg-gray-100 text-gray-600 hover:bg-gray-200 transition-all duration-200 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#ff4400]"
+              >
+                <Download size={14} strokeWidth={2.5} />
+                <span className="text-[10px] font-black uppercase tracking-widest">Export_Card</span>
+              </button>
+            </div>
           </>
         )}
 

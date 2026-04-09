@@ -27,10 +27,10 @@ export const CACHE_TTL_MS = 24 * 60 * 60 * 1000; // 24 hours
 
 // Standard delivery ratios in cinematography
 export const DELIVERY_RATIOS = [
-  { value: 1.78, label: '1.78:1', sublabel: 'HD' },
-  { value: 1.90, label: '1.90:1', sublabel: '' },
+  { value: 1.43, label: '1.43:1', sublabel: 'IMAX' },
+  { value: 1.78, label: '1.78:1', sublabel: 'Digital 16:9' },
+  { value: 2.00, label: '2.00:1', sublabel: 'Streaming' },
   { value: 2.39, label: '2.39:1', sublabel: 'SCOPE' },
-  { value: 2.76, label: '2.76:1', sublabel: '' },
 ];
 
 // Resize debounce delay (ms)

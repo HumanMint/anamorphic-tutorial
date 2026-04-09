@@ -51,7 +51,8 @@ function App() {
     mode: '',
     squeeze: 1.0,
     delivery: 2.39,
-    scope90: false
+    scope90: false,
+    verticalLens: false
   });
 
   useEffect(() => {
@@ -76,15 +77,25 @@ function App() {
         newSelection.mode = '';
         newSelection.squeeze = 1.0;
         newSelection.scope90 = false;
+        newSelection.verticalLens = false;
       }
       if (key === 'model') {
         newSelection.mode = '';
         newSelection.squeeze = 1.0;
         newSelection.scope90 = false;
+        newSelection.verticalLens = false;
       }
       if (key === 'mode') {
          newSelection.squeeze = 1.0;
          newSelection.scope90 = false;
+         newSelection.verticalLens = false;
+      }
+      // Mutual exclusion: scope90 and verticalLens
+      if (key === 'scope90' && value) {
+        newSelection.verticalLens = false;
+      }
+      if (key === 'verticalLens' && value) {
+        newSelection.scope90 = false;
       }
 
       return newSelection;
@@ -166,6 +177,7 @@ function App() {
             squeeze={selection.squeeze}
             delivery={selection.delivery}
             scope90={selection.scope90}
+            verticalLens={selection.verticalLens}
         />
         </div>
     </ErrorBoundary>

@@ -2,7 +2,7 @@ import React, { useEffect, useRef, useState, useMemo } from 'react';
 import { animate } from 'animejs';
 import { BREAKPOINTS, SCALE_FACTORS, ANIMATION, COLORS, RESIZE_DEBOUNCE_MS } from '../utils/constants';
 
-const Simulator = ({ activeMode, squeeze = 1.0, delivery = 1.78, scope90 = false }) => {
+const Simulator = ({ activeMode, squeeze = 1.0, delivery = 1.78, scope90 = false, verticalLens = false }) => {
   const sensorRef = useRef(null);
   const monitorRef = useRef(null);
   const sensorStabilizerRef = useRef(null);
@@ -23,6 +23,17 @@ const Simulator = ({ activeMode, squeeze = 1.0, delivery = 1.78, scope90 = false
     if (windowWidth < BREAKPOINTS.MD) return SCALE_FACTORS.MD;
     return SCALE_FACTORS.LG;
   }, [windowWidth]);
+
+  // Virtual format: effective sensor size after desqueeze
+  const virtualFormat = useMemo(() => {
+    if (!activeMode) return null;
+    const effectiveW = scope90 ? activeMode.height : activeMode.width;
+    const effectiveH = scope90 ? activeMode.width : activeMode.height;
+    if (verticalLens) {
+      return { width: effectiveW, height: effectiveH * squeeze };
+    }
+    return { width: effectiveW * squeeze, height: effectiveH };
+  }, [activeMode, squeeze, scope90, verticalLens]);
 
   // Debounced resize handler
   useEffect(() => {
@@ -55,10 +66,18 @@ const Simulator = ({ activeMode, squeeze = 1.0, delivery = 1.78, scope90 = false
     const effectiveCaptureWidth = scope90 ? activeMode.height : activeMode.width;
     const effectiveCaptureHeight = scope90 ? activeMode.width : activeMode.height;
 
-    const monitorH = effectiveCaptureHeight * ABSOLUTE_SCALE;
-    const monitorW = monitorH * (effectiveCaptureWidth / effectiveCaptureHeight) * squeeze;
+    let monitorW, monitorH;
+    if (verticalLens) {
+      monitorW = effectiveCaptureWidth * ABSOLUTE_SCALE;
+      monitorH = monitorW * (effectiveCaptureHeight / effectiveCaptureWidth) * squeeze;
+    } else {
+      monitorH = effectiveCaptureHeight * ABSOLUTE_SCALE;
+      monitorW = monitorH * (effectiveCaptureWidth / effectiveCaptureHeight) * squeeze;
+    }
 
-    const desqueezedAspect = (effectiveCaptureWidth / effectiveCaptureHeight) * squeeze;
+    const desqueezedAspect = verticalLens
+      ? effectiveCaptureWidth / (effectiveCaptureHeight * squeeze)
+      : (effectiveCaptureWidth / effectiveCaptureHeight) * squeeze;
     let cropW, cropH;
     if (desqueezedAspect > delivery) {
       cropH = monitorH;
@@ -92,7 +111,8 @@ const Simulator = ({ activeMode, squeeze = 1.0, delivery = 1.78, scope90 = false
     // 3. Animate Subject (The Optical Squeeze)
     animationsRef.current.push(
       animate(sensorSubjectRef.current, {
-        scaleX: 1 / squeeze,
+        scaleX: verticalLens ? 1 : (1 / squeeze),
+        scaleY: verticalLens ? (1 / squeeze) : 1,
         ...elasticConfig
       })
     );
@@ -160,7 +180,7 @@ const Simulator = ({ activeMode, squeeze = 1.0, delivery = 1.78, scope90 = false
       });
     };
 
-  }, [activeMode, squeeze, delivery, scope90, ABSOLUTE_SCALE]);
+  }, [activeMode, squeeze, delivery, scope90, verticalLens, ABSOLUTE_SCALE]);
 
   if (!activeMode) {
     return (
@@ -192,7 +212,7 @@ const Simulator = ({ activeMode, squeeze = 1.0, delivery = 1.78, scope90 = false
           <div className="flex-1">
             <div className="text-[8px] lg:text-[9px] font-black uppercase tracking-widest text-gray-400 mb-1 lg:mb-2 underline decoration-gray-200 underline-offset-4">01_Focal_Plane</div>
             <div className="text-[10px] lg:text-xs font-bold text-gray-900 tracking-tighter">
-                {scope90 ? 'SCOPE_90_MOUNT' : 'OPTICAL_CAPTURE'}
+                {scope90 ? 'SCOPE_90_MOUNT' : verticalLens ? 'VERTICAL_LENS' : 'OPTICAL_CAPTURE'}
             </div>
           </div>
           <div className="relative">
@@ -219,7 +239,7 @@ const Simulator = ({ activeMode, squeeze = 1.0, delivery = 1.78, scope90 = false
             </div>
           </div>
           <div className="absolute -left-12 lg:-left-20 top-1/2 -translate-y-1/2 -rotate-90 text-[10px] lg:text-[11px] font-black uppercase tracking-[0.5em] text-gray-400 pointer-events-none whitespace-nowrap">
-            {scope90 ? 'SCOPE_90_MOUNT' : 'Standard_Mount'}
+            {scope90 ? 'SCOPE_90_MOUNT' : verticalLens ? 'Vertical_Lens' : 'Standard_Mount'}
           </div>
         </div>
       </div>
@@ -234,8 +254,13 @@ const Simulator = ({ activeMode, squeeze = 1.0, delivery = 1.78, scope90 = false
           <div className="text-right font-mono flex flex-col items-end">
              <div className="text-[10px] lg:text-[11px] font-black text-gray-400 uppercase tracking-widest mb-0.5">Configuration</div>
              <div className="text-xs lg:text-sm text-[#ff4400] font-black tracking-tighter leading-none">
-                {scope90 ? '90\u00B0 DESQ' : `${Number(squeeze).toFixed(2)}X`}
+                {scope90 ? '90\u00B0 DESQ' : verticalLens ? `${Number(squeeze).toFixed(2)}X VERT` : `${Number(squeeze).toFixed(2)}X`}
              </div>
+             {virtualFormat && (
+               <div className="text-[9px] lg:text-[10px] text-gray-500 font-bold mt-1 tracking-tight">
+                 VIRTUAL {virtualFormat.width.toFixed(2)} &times; {virtualFormat.height.toFixed(2)} mm
+               </div>
+             )}
           </div>
         </div>
 
