@@ -35,6 +35,26 @@ const Simulator = ({ activeMode, squeeze = 1.0, delivery = 1.78, scope90 = false
     return { width: effectiveW * squeeze, height: effectiveH };
   }, [activeMode, squeeze, scope90, verticalLens]);
 
+  // Target / crop calculation: how the desqueezed full image relates to the target ratio
+  const targetInfo = useMemo(() => {
+    if (!activeMode) return null;
+    const effectiveW = scope90 ? activeMode.height : activeMode.width;
+    const effectiveH = scope90 ? activeMode.width : activeMode.height;
+    const fullAspect = verticalLens
+      ? effectiveW / (effectiveH * squeeze)
+      : (effectiveW / effectiveH) * squeeze;
+    const cropRatio = Math.min(fullAspect, delivery) / Math.max(fullAspect, delivery);
+    const cropPct = (1 - cropRatio) * 100;
+    const isMatch = cropPct < 0.05;
+    return {
+      fullAspect,
+      target: delivery,
+      cropPct,
+      isMatch,
+      cropAxis: fullAspect > delivery ? 'SIDES' : 'TOP/BTM',
+    };
+  }, [activeMode, squeeze, delivery, scope90, verticalLens]);
+
   // Debounced resize handler
   useEffect(() => {
     let timeoutId;
@@ -193,30 +213,51 @@ const Simulator = ({ activeMode, squeeze = 1.0, delivery = 1.78, scope90 = false
     );
   }
 
-  return (
-    <div className="flex-1 bg-[#f2f2f2] flex flex-col items-center justify-start lg:justify-center p-6 lg:p-12 gap-12 lg:gap-16 border-l-0 lg:border-l border-gray-200 overflow-y-auto lg:overflow-hidden relative">
+  const orientationLabel = scope90 ? 'SCOPE_90_MOUNT' : verticalLens ? 'VERTICAL_LENS' : 'STANDARD_MOUNT';
+  const configLabel = scope90 ? '90°_DESQUEEZE' : verticalLens ? `${Number(squeeze).toFixed(2)}X_VERTICAL` : `${Number(squeeze).toFixed(2)}X_DESQUEEZE`;
 
-      {/* STATIC PHYSICAL GRID */}
+  return (
+    <div className="flex-1 bg-[#f2f2f2] flex flex-col lg:flex-row items-stretch p-6 lg:p-10 gap-10 lg:gap-0 border-l-0 lg:border-l border-gray-200 overflow-y-auto lg:overflow-hidden relative">
+
+      {/* STATIC PHYSICAL GRID — calibrated scale reference (10mm minor / 50mm major) */}
       <div
-        className="absolute inset-0 opacity-[0.04] pointer-events-none"
+        className="absolute inset-0 pointer-events-none"
+        aria-hidden="true"
         style={{
-          backgroundImage: 'linear-gradient(#000 1px, transparent 1px), linear-gradient(90deg, #000 1px, transparent 1px)',
-          backgroundSize: `${10 * ABSOLUTE_SCALE}px ${10 * ABSOLUTE_SCALE}px`,
-          backgroundPosition: 'center center'
+          backgroundImage: `
+            linear-gradient(rgba(0,0,0,0.05) 1px, transparent 1px),
+            linear-gradient(90deg, rgba(0,0,0,0.05) 1px, transparent 1px),
+            linear-gradient(rgba(0,0,0,0.13) 1px, transparent 1px),
+            linear-gradient(90deg, rgba(0,0,0,0.13) 1px, transparent 1px)
+          `,
+          backgroundSize: `
+            ${10 * ABSOLUTE_SCALE}px ${10 * ABSOLUTE_SCALE}px,
+            ${10 * ABSOLUTE_SCALE}px ${10 * ABSOLUTE_SCALE}px,
+            ${50 * ABSOLUTE_SCALE}px ${50 * ABSOLUTE_SCALE}px,
+            ${50 * ABSOLUTE_SCALE}px ${50 * ABSOLUTE_SCALE}px
+          `,
+          backgroundPosition: 'center center',
         }}
       />
 
+      {/* SCALE LEGEND */}
+      <div className="absolute bottom-3 right-3 z-20 flex items-center gap-2 text-[8px] font-bold uppercase tracking-[0.2em] text-gray-400 tabular-nums pointer-events-none select-none">
+        <div className="w-2 h-2 border border-gray-300" /><span>10_MM</span>
+        <span className="opacity-40 mx-0.5">/</span>
+        <div className="w-3 h-3 border border-gray-500" /><span>50_MM</span>
+      </div>
+
       {/* SECTION 1: SENSOR CAPTURE */}
-      <div className="flex flex-col items-center z-10 w-full shrink-0">
-        <div className="mb-4 lg:mb-6 flex gap-6 lg:gap-12 items-end w-full max-w-[500px]">
+      <div className="flex flex-col items-center justify-center z-10 w-full lg:flex-1 shrink-0">
+        <div className="mb-4 lg:mb-6 flex gap-6 lg:gap-10 items-end w-full max-w-[440px]">
           <div className="flex-1">
-            <div className="text-[8px] lg:text-[9px] font-black uppercase tracking-widest text-gray-400 mb-1 lg:mb-2 underline decoration-gray-200 underline-offset-4">01_Focal_Plane</div>
+            <div className="text-[8px] lg:text-[9px] font-black uppercase tracking-widest text-gray-400 mb-1 lg:mb-2 underline decoration-gray-200 underline-offset-4">01_FOCAL_PLANE</div>
             <div className="text-[10px] lg:text-xs font-bold text-gray-900 tracking-tighter">
-                {scope90 ? 'SCOPE_90_MOUNT' : verticalLens ? 'VERTICAL_LENS' : 'OPTICAL_CAPTURE'}
+                {orientationLabel}
             </div>
           </div>
           <div className="relative">
-            <div ref={metricsRef} aria-live="polite" aria-label="Sensor dimensions" className="text-right flex items-baseline gap-1 font-mono text-gray-600 origin-center">
+            <div ref={metricsRef} aria-live="polite" aria-label="Sensor dimensions" className="text-right flex items-baseline gap-1 font-mono text-gray-600 origin-center tabular-nums">
                <div ref={widthTextRef} className="text-xs lg:text-sm font-bold origin-right">{activeMode.width.toFixed(2)}</div>
                <div className="text-[8px] lg:text-[10px] text-gray-300">&times;</div>
                <div ref={heightTextRef} className="text-xs lg:text-sm font-bold origin-right">{activeMode.height.toFixed(2)}</div>
@@ -228,7 +269,7 @@ const Simulator = ({ activeMode, squeeze = 1.0, delivery = 1.78, scope90 = false
         <div className="relative flex items-center justify-center min-h-[150px] lg:min-h-[340px] w-full">
           <div
             ref={sensorRef}
-            className="bg-white border-[2px] border-gray-900 shadow-[20px_20px_60px_rgba(0,0,0,0.05)] flex items-center justify-center overflow-hidden relative"
+            className="bg-white border-[2px] border-gray-900 flex items-center justify-center overflow-hidden relative"
             style={{ width: 100, height: 100 }}
           >
             <div ref={sensorStabilizerRef} className="flex items-center justify-center">
@@ -238,27 +279,27 @@ const Simulator = ({ activeMode, squeeze = 1.0, delivery = 1.78, scope90 = false
                 />
             </div>
           </div>
-          <div className="absolute -left-12 lg:-left-20 top-1/2 -translate-y-1/2 -rotate-90 text-[10px] lg:text-[11px] font-black uppercase tracking-[0.5em] text-gray-400 pointer-events-none whitespace-nowrap">
-            {scope90 ? 'SCOPE_90_MOUNT' : verticalLens ? 'Vertical_Lens' : 'Standard_Mount'}
-          </div>
         </div>
       </div>
 
+      {/* VERTICAL DIVIDER (lg+) */}
+      <div className="hidden lg:block w-px self-stretch bg-gray-300 mx-4 z-10" aria-hidden="true" />
+
       {/* SECTION 2: DIGITAL OUTPUT */}
-      <div className="flex flex-col items-center z-10 w-full shrink-0">
-        <div className="mb-4 lg:mb-6 flex gap-6 lg:gap-12 items-end w-full max-w-[500px]">
+      <div className="flex flex-col items-center justify-center z-10 w-full lg:flex-1 shrink-0">
+        <div className="mb-4 lg:mb-6 flex gap-6 lg:gap-10 items-end w-full max-w-[440px]">
           <div className="flex-1">
-            <div className="text-[8px] lg:text-[9px] font-black uppercase tracking-widest text-gray-400 mb-1 lg:mb-2 underline decoration-gray-200 underline-offset-4">02_Signal_Output</div>
+            <div className="text-[8px] lg:text-[9px] font-black uppercase tracking-widest text-gray-400 mb-1 lg:mb-2 underline decoration-gray-200 underline-offset-4">02_SIGNAL_OUTPUT</div>
             <div className="text-[10px] lg:text-xs font-bold text-gray-900 tracking-tighter">DESQUEEZED_MONITOR</div>
           </div>
-          <div className="text-right font-mono flex flex-col items-end">
-             <div className="text-[10px] lg:text-[11px] font-black text-gray-400 uppercase tracking-widest mb-0.5">Configuration</div>
-             <div className="text-xs lg:text-sm text-[#ff4400] font-black tracking-tighter leading-none">
-                {scope90 ? '90\u00B0 DESQ' : verticalLens ? `${Number(squeeze).toFixed(2)}X VERT` : `${Number(squeeze).toFixed(2)}X`}
+          <div className="text-right font-mono flex flex-col items-end tabular-nums">
+             <div className="text-[10px] lg:text-[11px] font-black text-gray-400 uppercase tracking-widest mb-0.5">CONFIGURATION</div>
+             <div className="text-xs lg:text-sm text-gray-900 font-black tracking-tighter leading-none">
+                {configLabel}
              </div>
              {virtualFormat && (
                <div className="text-[9px] lg:text-[10px] text-gray-500 font-bold mt-1 tracking-tight">
-                 VIRTUAL {virtualFormat.width.toFixed(2)} &times; {virtualFormat.height.toFixed(2)} mm
+                 VIRTUAL {virtualFormat.width.toFixed(2)} &times; {virtualFormat.height.toFixed(2)} MM
                </div>
              )}
           </div>
@@ -267,7 +308,7 @@ const Simulator = ({ activeMode, squeeze = 1.0, delivery = 1.78, scope90 = false
         <div className="relative flex items-center justify-center min-h-[150px] lg:min-h-[340px] w-full">
           <div
             ref={monitorRef}
-            className="bg-[#111] shadow-2xl relative overflow-hidden ring-1 ring-white/10"
+            className="bg-[#111] relative overflow-hidden border border-gray-900"
             style={{ width: 100, height: 100 }}
           >
             <div className="absolute inset-0 flex items-center justify-center">
@@ -276,14 +317,36 @@ const Simulator = ({ activeMode, squeeze = 1.0, delivery = 1.78, scope90 = false
 
             <div
               ref={cropRef}
-              className="absolute border-[1px] border-[#ff4400]/80 shadow-[0_0_20px_rgba(255,68,0,0.4)] z-10"
+              className="absolute border-[1.5px] border-[#ff4400] z-10"
             >
-              <div className="absolute bottom-0 right-0 p-1 lg:p-1.5 text-[10px] lg:text-[11px] font-black text-[#ff4400] uppercase bg-gray-900/90 tracking-widest text-right">
-                {delivery.toFixed(2)}:1_OUT
+              <div className="absolute bottom-0 right-0 px-1 py-0.5 lg:px-1.5 lg:py-1 text-[9px] lg:text-[10px] font-black text-[#ff4400] uppercase bg-[#1a1a1a] tracking-widest text-right tabular-nums whitespace-nowrap">
+                TARGET_RATIO {delivery.toFixed(2)}:1
               </div>
             </div>
           </div>
         </div>
+
+        {/* CALCULATED READOUT — three mini-cells matching card spec strip */}
+        {targetInfo && (
+          <div className="mt-5 lg:mt-7 w-full max-w-[420px] grid grid-cols-3 font-mono tabular-nums">
+            <div className="flex flex-col px-3">
+              <span className="text-gray-400 font-black uppercase tracking-[0.15em] text-[8px] lg:text-[9px] mb-1">CALCULATED</span>
+              <span className="text-gray-900 font-bold text-[11px] lg:text-[13px] leading-none">{targetInfo.fullAspect.toFixed(2)}:1</span>
+            </div>
+            <div className="flex flex-col px-3 border-l border-gray-200">
+              <span className="text-gray-400 font-black uppercase tracking-[0.15em] text-[8px] lg:text-[9px] mb-1">TARGET</span>
+              <span className="text-gray-900 font-bold text-[11px] lg:text-[13px] leading-none">{targetInfo.target.toFixed(2)}:1</span>
+            </div>
+            <div className="flex flex-col px-3 border-l border-gray-200">
+              <span className="text-gray-400 font-black uppercase tracking-[0.15em] text-[8px] lg:text-[9px] mb-1">CROP_LOSS</span>
+              <span className="text-gray-900 font-bold text-[11px] lg:text-[13px] leading-none whitespace-nowrap">
+                {targetInfo.isMatch
+                  ? 'NATIVE_FIT'
+                  : `${targetInfo.cropPct.toFixed(1)}% ${targetInfo.cropAxis}`}
+              </span>
+            </div>
+          </div>
+        )}
       </div>
 
     </div>

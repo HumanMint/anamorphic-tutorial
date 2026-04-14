@@ -7,7 +7,7 @@ const sanitize = (val) => typeof val === 'string' ? val.replace(/[<>"'&]/g, '') 
 const parseCSV = (csvText) => {
   const results = Papa.parse(csvText, { header: true, skipEmptyLines: true });
 
-  if (results.errors.length > 0) {
+  if (results.errors.length > 0 && import.meta.env.DEV) {
     console.warn('CSV parse warnings:', results.errors);
   }
 
@@ -75,7 +75,9 @@ export const loadCameraData = async () => {
     writeCache(brands);
     return brands;
   } catch (err) {
-    console.warn('Live CSV fetch failed, using bundled fallback:', err);
+    if (import.meta.env.DEV) {
+      console.warn('Live CSV fetch failed, using bundled fallback:', err);
+    }
     return fallbackData;
   }
 };

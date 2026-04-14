@@ -2,113 +2,140 @@ import { COLORS } from './constants';
 
 const CARD_W = 1200;
 const CARD_H = 630;
-const HEADER_H = 60;
-const FOOTER_H = 80;
-const CONTENT_Y = HEADER_H;
-const CONTENT_H = CARD_H - HEADER_H - FOOTER_H;
+const HEADER_H = 56;
+const FOOTER_H = 110;
+const RULE_PAD = 24; // padding between header/footer bands and content rules
+const CONTENT_TOP = HEADER_H + RULE_PAD;
+const CONTENT_BOTTOM = CARD_H - FOOTER_H - RULE_PAD;
+const SIDE_PAD = 40;
 
-const BG = '#f2f2f2';
-const DARK = '#1a1a1a';
+// Tokens — locked palette
+const PAPER = '#f2f2f2';
+const INK = '#1a1a1a';
+const RULE = '#d0d0d0';
+const LABEL = '#7a7a7a';
+const SUB = '#9a9a9a';
 const MONITOR_BG = '#111111';
-const ACCENT = COLORS.ACCENT;
-const GRAY_400 = '#9ca3af';
-const GRAY_300 = '#d1d5db';
+const ACCENT = COLORS.ACCENT; // reserved: optical signal only
 const WHITE = '#ffffff';
 
 const SANS = 'system-ui, -apple-system, "Segoe UI", sans-serif';
 const MONO = '"SF Mono", "Cascadia Code", "Fira Code", monospace';
 
-function drawRoundedRect(ctx, x, y, w, h, r) {
-  ctx.beginPath();
-  ctx.moveTo(x + r, y);
-  ctx.lineTo(x + w - r, y);
-  ctx.quadraticCurveTo(x + w, y, x + w, y + r);
-  ctx.lineTo(x + w, y + h - r);
-  ctx.quadraticCurveTo(x + w, y + h, x + w - r, y + h);
-  ctx.lineTo(x + r, y + h);
-  ctx.quadraticCurveTo(x, y + h, x, y + h - r);
-  ctx.lineTo(x, y + r);
-  ctx.quadraticCurveTo(x, y, x + r, y);
-  ctx.closePath();
-}
-
 function drawHeader(ctx) {
-  ctx.fillStyle = DARK;
+  ctx.fillStyle = INK;
   ctx.fillRect(0, 0, CARD_W, HEADER_H);
 
   ctx.fillStyle = WHITE;
   ctx.font = `900 20px ${SANS}`;
   ctx.textAlign = 'left';
   ctx.textBaseline = 'middle';
-  ctx.fillText('ANAMORPHIC', 32, HEADER_H / 2);
+  ctx.fillText('ANAMORPHIC', SIDE_PAD, HEADER_H / 2);
 
   const anamorphicWidth = ctx.measureText('ANAMORPHIC').width;
   ctx.fillStyle = ACCENT;
-  ctx.fillText('_', 32 + anamorphicWidth, HEADER_H / 2);
+  ctx.fillText('_', SIDE_PAD + anamorphicWidth, HEADER_H / 2);
 
   const underscoreWidth = ctx.measureText('_').width;
   ctx.fillStyle = WHITE;
-  ctx.fillText('SIM', 32 + anamorphicWidth + underscoreWidth, HEADER_H / 2);
+  ctx.fillText('SIM', SIDE_PAD + anamorphicWidth + underscoreWidth, HEADER_H / 2);
 
-  ctx.fillStyle = GRAY_400;
-  ctx.font = `700 10px ${SANS}`;
+  // Right: author + sheet
+  ctx.fillStyle = SUB;
+  ctx.font = `700 9px ${MONO}`;
   ctx.textAlign = 'right';
-  ctx.fillText('by Ha Joon Park', CARD_W - 32, HEADER_H / 2);
+  ctx.fillText('SHEET_01 / REV_A   ·   BY HA JOON PARK', CARD_W - SIDE_PAD, HEADER_H / 2);
 }
 
-function drawFooter(ctx, { camera, activeMode, squeeze, delivery, scope90, verticalLens }) {
-  const footerY = CARD_H - FOOTER_H;
-  ctx.fillStyle = DARK;
-  ctx.fillRect(0, footerY, CARD_W, FOOTER_H);
+function drawRules(ctx) {
+  ctx.strokeStyle = INK;
+  ctx.lineWidth = 1;
+  // Top rule below header
+  ctx.beginPath();
+  ctx.moveTo(SIDE_PAD, HEADER_H + 12);
+  ctx.lineTo(CARD_W - SIDE_PAD, HEADER_H + 12);
+  ctx.stroke();
+  // Bottom rule above footer
+  const y = CARD_H - FOOTER_H - 12;
+  ctx.beginPath();
+  ctx.moveTo(SIDE_PAD, y);
+  ctx.lineTo(CARD_W - SIDE_PAD, y);
+  ctx.stroke();
+}
 
-  // Left side: camera info
-  ctx.fillStyle = WHITE;
-  ctx.font = `900 13px ${SANS}`;
+function drawScaleGrid(ctx, scale) {
+  // Calibrated reference grid — 10mm minor / 50mm major, sized to passed mm-to-px scale
+  const x0 = SIDE_PAD;
+  const y0 = HEADER_H + 14;
+  const x1 = CARD_W - SIDE_PAD;
+  const y1 = CARD_H - FOOTER_H - 14;
+  ctx.save();
+  ctx.beginPath();
+  ctx.rect(x0, y0, x1 - x0, y1 - y0);
+  ctx.clip();
+
+  const cx = (x0 + x1) / 2;
+  const cy = (y0 + y1) / 2;
+  const minorStep = 10 * scale;
+  const majorStep = 50 * scale;
+
+  ctx.strokeStyle = 'rgba(0,0,0,0.04)';
+  ctx.lineWidth = 1;
+  ctx.beginPath();
+  for (let x = cx; x < x1; x += minorStep) { ctx.moveTo(x, y0); ctx.lineTo(x, y1); }
+  for (let x = cx - minorStep; x > x0; x -= minorStep) { ctx.moveTo(x, y0); ctx.lineTo(x, y1); }
+  for (let y = cy; y < y1; y += minorStep) { ctx.moveTo(x0, y); ctx.lineTo(x1, y); }
+  for (let y = cy - minorStep; y > y0; y -= minorStep) { ctx.moveTo(x0, y); ctx.lineTo(x1, y); }
+  ctx.stroke();
+
+  ctx.strokeStyle = 'rgba(0,0,0,0.10)';
+  ctx.beginPath();
+  for (let x = cx; x < x1; x += majorStep) { ctx.moveTo(x, y0); ctx.lineTo(x, y1); }
+  for (let x = cx - majorStep; x > x0; x -= majorStep) { ctx.moveTo(x, y0); ctx.lineTo(x, y1); }
+  for (let y = cy; y < y1; y += majorStep) { ctx.moveTo(x0, y); ctx.lineTo(x1, y); }
+  for (let y = cy - majorStep; y > y0; y -= majorStep) { ctx.moveTo(x0, y); ctx.lineTo(x1, y); }
+  ctx.stroke();
+
+  ctx.restore();
+}
+
+function drawScaleLegend(ctx) {
+  // Bottom-left of content band — fixed-size icons (grid itself carries the scale)
+  const x = SIDE_PAD + 4;
+  const y = CARD_H - FOOTER_H - 22;
+  ctx.fillStyle = LABEL;
+  ctx.font = `700 8px ${MONO}`;
   ctx.textAlign = 'left';
   ctx.textBaseline = 'middle';
-  ctx.fillText(`${camera.brand}  /  ${camera.model}`, 32, footerY + 28);
 
-  ctx.fillStyle = GRAY_400;
-  ctx.font = `700 11px ${MONO}`;
-  ctx.fillText(`${camera.mode}  —  ${activeMode.resolution}`, 32, footerY + 52);
+  ctx.strokeStyle = 'rgba(0,0,0,0.25)';
+  ctx.lineWidth = 1;
+  ctx.strokeRect(x, y - 4, 8, 8);
+  ctx.fillText('10_MM', x + 14, y);
 
-  // Right side: lens config
-  ctx.textAlign = 'right';
-  ctx.fillStyle = ACCENT;
-  ctx.font = `900 14px ${MONO}`;
-
-  const orientLabel = scope90 ? '90\u00B0 MOUNT' : verticalLens ? 'VERT LENS' : 'STANDARD';
-  ctx.fillText(`${squeeze.toFixed(2)}x  \u00B7  ${orientLabel}  \u00B7  ${delivery.toFixed(2)}:1`, CARD_W - 32, footerY + 28);
-
-  const effectiveW = scope90 ? activeMode.height : activeMode.width;
-  const effectiveH = scope90 ? activeMode.width : activeMode.height;
-  const virtualW = verticalLens ? effectiveW : effectiveW * squeeze;
-  const virtualH = verticalLens ? effectiveH * squeeze : effectiveH;
-  ctx.fillStyle = GRAY_400;
-  ctx.font = `700 10px ${MONO}`;
-  ctx.fillText(`VIRTUAL ${virtualW.toFixed(2)} \u00D7 ${virtualH.toFixed(2)} mm`, CARD_W - 32, footerY + 52);
+  const x2 = x + 70;
+  ctx.strokeStyle = 'rgba(0,0,0,0.45)';
+  ctx.strokeRect(x2, y - 6, 12, 12);
+  ctx.fillText('50_MM', x2 + 18, y);
 }
 
-function drawSensorSection(ctx, { activeMode, squeeze, scope90, verticalLens }) {
-  const sectionX = 32;
-  const sectionW = CARD_W / 2 - 48;
+function drawSensorSection(ctx, { activeMode, squeeze, scope90, verticalLens, scale }) {
+  const sectionX = SIDE_PAD;
+  const sectionW = CARD_W / 2 - SIDE_PAD - 12;
   const centerX = sectionX + sectionW / 2;
-  const diagramCenterY = CONTENT_Y + 40 + (CONTENT_H - 80) / 2;
+  const labelY = CONTENT_TOP + 4;
+  const diagramCenterY = (CONTENT_TOP + 50 + CONTENT_BOTTOM - 60) / 2;
 
-  // Section label
-  ctx.fillStyle = GRAY_400;
-  ctx.font = `900 9px ${SANS}`;
+  // Section label tab (top-left of section)
+  ctx.fillStyle = LABEL;
+  ctx.font = `900 10px ${MONO}`;
   ctx.textAlign = 'left';
   ctx.textBaseline = 'top';
-  ctx.letterSpacing = '3px';
-  ctx.fillText('01_FOCAL_PLANE', sectionX, CONTENT_Y + 20);
-  ctx.letterSpacing = '0px';
+  ctx.fillText('01_FOCAL_PLANE', sectionX, labelY);
 
-  // Sensor box
-  const maxBox = Math.min(sectionW - 60, CONTENT_H - 140);
-  const sensorScale = maxBox / Math.max(activeMode.width, activeMode.height);
-  let boxW = activeMode.width * sensorScale;
-  let boxH = activeMode.height * sensorScale;
+  // Sensor box (sized by unified mm-to-px scale)
+  const boxW = activeMode.width * scale;
+  const boxH = activeMode.height * scale;
 
   if (scope90) {
     ctx.save();
@@ -116,11 +143,10 @@ function drawSensorSection(ctx, { activeMode, squeeze, scope90, verticalLens }) 
     ctx.rotate(Math.PI / 2);
     ctx.fillStyle = WHITE;
     ctx.fillRect(-boxW / 2, -boxH / 2, boxW, boxH);
-    ctx.strokeStyle = DARK;
+    ctx.strokeStyle = INK;
     ctx.lineWidth = 2;
     ctx.strokeRect(-boxW / 2, -boxH / 2, boxW, boxH);
 
-    // Oval (counter-rotated so it stays upright)
     ctx.rotate(-Math.PI / 2);
     const baseR = Math.min(boxW, boxH) * 0.3;
     ctx.beginPath();
@@ -132,15 +158,13 @@ function drawSensorSection(ctx, { activeMode, squeeze, scope90, verticalLens }) 
   } else {
     ctx.fillStyle = WHITE;
     ctx.fillRect(centerX - boxW / 2, diagramCenterY - boxH / 2, boxW, boxH);
-    ctx.strokeStyle = DARK;
+    ctx.strokeStyle = INK;
     ctx.lineWidth = 2;
     ctx.strokeRect(centerX - boxW / 2, diagramCenterY - boxH / 2, boxW, boxH);
 
-    // Oval
     const baseR = Math.min(boxW, boxH) * 0.3;
     let ovalRx, ovalRy;
     if (verticalLens) {
-      // Lens rotated 90deg: horizontal squeeze on rotated element = visual vertical squeeze
       ovalRx = baseR;
       ovalRy = baseR / squeeze;
     } else {
@@ -154,72 +178,61 @@ function drawSensorSection(ctx, { activeMode, squeeze, scope90, verticalLens }) 
     ctx.stroke();
   }
 
-  // Dimensions label
-  ctx.fillStyle = DARK;
+  // Dimensions label (neutral)
+  ctx.fillStyle = INK;
   ctx.font = `700 13px ${MONO}`;
   ctx.textAlign = 'center';
   ctx.textBaseline = 'top';
   ctx.fillText(
-    `${activeMode.width.toFixed(2)} \u00D7 ${activeMode.height.toFixed(2)} mm`,
+    `${activeMode.width.toFixed(2)}  \u00D7  ${activeMode.height.toFixed(2)}  MM`,
     centerX,
-    diagramCenterY + boxH / 2 + 14
+    diagramCenterY + boxH / 2 + 18
   );
 
-  // Orientation label
+  // Orientation sub-label (neutral)
   const orientLabel = scope90 ? 'SCOPE_90_MOUNT' : verticalLens ? 'VERTICAL_LENS' : 'STANDARD_MOUNT';
-  ctx.fillStyle = GRAY_400;
-  ctx.font = `900 9px ${SANS}`;
-  ctx.fillText(orientLabel, centerX, diagramCenterY + boxH / 2 + 36);
+  ctx.fillStyle = LABEL;
+  ctx.font = `900 9px ${MONO}`;
+  ctx.fillText(orientLabel, centerX, diagramCenterY + boxH / 2 + 40);
 }
 
-function drawMonitorSection(ctx, { activeMode, squeeze, delivery, scope90, verticalLens }) {
-  const sectionX = CARD_W / 2 + 16;
-  const sectionW = CARD_W / 2 - 48;
+function drawMonitorSection(ctx, { activeMode, squeeze, delivery, scope90, verticalLens, scale, monRawW, monRawH }) {
+  const sectionX = CARD_W / 2 + 12;
+  const sectionW = CARD_W / 2 - SIDE_PAD - 12;
   const centerX = sectionX + sectionW / 2;
-  const diagramCenterY = CONTENT_Y + 40 + (CONTENT_H - 80) / 2;
+  const labelY = CONTENT_TOP + 4;
+  const diagramCenterY = (CONTENT_TOP + 50 + CONTENT_BOTTOM - 60) / 2;
 
-  // Section label
-  ctx.fillStyle = GRAY_400;
-  ctx.font = `900 9px ${SANS}`;
+  // Section label tab
+  ctx.fillStyle = LABEL;
+  ctx.font = `900 10px ${MONO}`;
   ctx.textAlign = 'left';
   ctx.textBaseline = 'top';
-  ctx.letterSpacing = '3px';
-  ctx.fillText('02_SIGNAL_OUTPUT', sectionX, CONTENT_Y + 20);
-  ctx.letterSpacing = '0px';
+  ctx.fillText('02_SIGNAL_OUTPUT', sectionX, labelY);
 
-  // Compute desqueezed monitor dimensions
   const effectiveW = scope90 ? activeMode.height : activeMode.width;
   const effectiveH = scope90 ? activeMode.width : activeMode.height;
 
-  let rawMonW, rawMonH;
-  if (verticalLens) {
-    rawMonW = effectiveW;
-    rawMonH = rawMonW * (effectiveH / effectiveW) * squeeze;
-  } else {
-    rawMonH = effectiveH;
-    rawMonW = rawMonH * (effectiveW / effectiveH) * squeeze;
-  }
+  // Monitor sized by unified mm-to-px scale (matches sensor + grid)
+  const monW = monRawW * scale;
+  const monH = monRawH * scale;
 
-  // Fit into available area
-  const maxBox = Math.min(sectionW - 60, CONTENT_H - 140);
-  const monScale = Math.min(maxBox / rawMonW, maxBox / rawMonH);
-  const monW = rawMonW * monScale;
-  const monH = rawMonH * monScale;
-
-  // Draw monitor box
+  // Monitor box — honest 1px border, no rounding, no shadow
   ctx.fillStyle = MONITOR_BG;
-  drawRoundedRect(ctx, centerX - monW / 2, diagramCenterY - monH / 2, monW, monH, 2);
-  ctx.fill();
+  ctx.fillRect(centerX - monW / 2, diagramCenterY - monH / 2, monW, monH);
+  ctx.strokeStyle = INK;
+  ctx.lineWidth = 1;
+  ctx.strokeRect(centerX - monW / 2, diagramCenterY - monH / 2, monW, monH);
 
-  // Ghost circle
+  // Ghost circle (the projected subject post-desqueeze)
   const ghostR = Math.min(monW, monH) * 0.3;
   ctx.beginPath();
   ctx.ellipse(centerX, diagramCenterY, ghostR, ghostR, 0, 0, Math.PI * 2);
-  ctx.strokeStyle = 'rgba(255,255,255,0.08)';
+  ctx.strokeStyle = 'rgba(255,255,255,0.10)';
   ctx.lineWidth = 3;
   ctx.stroke();
 
-  // Crop overlay
+  // Crop rectangle — orange (optical signal)
   const desqueezedAspect = verticalLens
     ? effectiveW / (effectiveH * squeeze)
     : (effectiveW / effectiveH) * squeeze;
@@ -238,65 +251,151 @@ function drawMonitorSection(ctx, { activeMode, squeeze, delivery, scope90, verti
 
   ctx.strokeStyle = ACCENT;
   ctx.lineWidth = 1.5;
-  ctx.globalAlpha = 0.8;
   ctx.strokeRect(cropX, cropY, cropW, cropH);
-  ctx.globalAlpha = 1;
 
-  // Crop glow
-  ctx.shadowColor = ACCENT;
-  ctx.shadowBlur = 12;
-  ctx.strokeRect(cropX, cropY, cropW, cropH);
-  ctx.shadowBlur = 0;
-
-  // Delivery ratio label
+  // Delivery ratio label inside crop (signal context — orange OK)
   ctx.fillStyle = ACCENT;
   ctx.font = `900 11px ${MONO}`;
   ctx.textAlign = 'right';
   ctx.textBaseline = 'bottom';
-  ctx.fillText(`${delivery.toFixed(2)}:1_OUT`, cropX + cropW - 4, cropY + cropH - 4);
+  ctx.fillText(`TARGET_RATIO ${delivery.toFixed(2)}:1`, cropX + cropW - 4, cropY + cropH - 4);
 
-  // Config label below monitor
+  // Config label (neutral)
   const configLabel = scope90
-    ? '90\u00B0 DESQUEEZE'
+    ? '90°_DESQUEEZE'
     : verticalLens
-      ? `${squeeze.toFixed(2)}X VERTICAL`
-      : `${squeeze.toFixed(2)}X DESQUEEZE`;
-  ctx.fillStyle = DARK;
+      ? `${squeeze.toFixed(2)}X_VERTICAL`
+      : `${squeeze.toFixed(2)}X_DESQUEEZE`;
+  ctx.fillStyle = INK;
   ctx.font = `700 13px ${MONO}`;
   ctx.textAlign = 'center';
   ctx.textBaseline = 'top';
-  ctx.fillText(configLabel, centerX, diagramCenterY + monH / 2 + 14);
+  ctx.fillText(configLabel, centerX, diagramCenterY + monH / 2 + 18);
 
-  ctx.fillStyle = GRAY_400;
-  ctx.font = `900 9px ${SANS}`;
-  ctx.fillText('DESQUEEZED_MONITOR', centerX, diagramCenterY + monH / 2 + 36);
-
-  // Virtual format
-  const virtualW = verticalLens ? effectiveW : effectiveW * squeeze;
-  const virtualH = verticalLens ? effectiveH * squeeze : effectiveH;
-  ctx.fillStyle = DARK;
-  ctx.font = `700 11px ${MONO}`;
-  ctx.fillText(
-    `VIRTUAL ${virtualW.toFixed(2)} \u00D7 ${virtualH.toFixed(2)} mm`,
-    centerX,
-    diagramCenterY + monH / 2 + 54
-  );
+  ctx.fillStyle = LABEL;
+  ctx.font = `900 9px ${MONO}`;
+  ctx.fillText('DESQUEEZED_MONITOR', centerX, diagramCenterY + monH / 2 + 40);
 }
 
-function drawDivider(ctx) {
-  const x = CARD_W / 2;
-  ctx.strokeStyle = GRAY_300;
-  ctx.lineWidth = 1;
-  ctx.setLineDash([4, 4]);
-  ctx.beginPath();
-  ctx.moveTo(x, CONTENT_Y + 16);
-  ctx.lineTo(x, CARD_H - FOOTER_H - 16);
-  ctx.stroke();
-  ctx.setLineDash([]);
+function drawFooterSpec(ctx, { camera, activeMode, squeeze, delivery, scope90, verticalLens }) {
+  const footerY = CARD_H - FOOTER_H;
+  ctx.fillStyle = INK;
+  ctx.fillRect(0, footerY, CARD_W, FOOTER_H);
+
+  const effectiveW = scope90 ? activeMode.height : activeMode.width;
+  const effectiveH = scope90 ? activeMode.width : activeMode.height;
+  const virtualW = verticalLens ? effectiveW : effectiveW * squeeze;
+  const virtualH = verticalLens ? effectiveH * squeeze : effectiveH;
+
+  const orientLabel = scope90 ? 'SCOPE_90_MOUNT' : verticalLens ? 'VERTICAL_LENS' : 'STANDARD_MOUNT';
+
+  // Calculated full-frame ratio + crop loss vs target
+  const fullAspect = verticalLens
+    ? effectiveW / (effectiveH * squeeze)
+    : (effectiveW / effectiveH) * squeeze;
+  const cropPct = (1 - Math.min(fullAspect, delivery) / Math.max(fullAspect, delivery)) * 100;
+  const isMatch = cropPct < 0.05;
+  const cropAxis = fullAspect > delivery ? 'SIDES' : 'TOP/BTM';
+
+  // Virtual pixel resolution — native pixels stretched on the desqueezed axis
+  const resMatch = activeMode.resolution && activeMode.resolution.match(/(\d+)\s*[x\u00D7]\s*(\d+)/i);
+  let virtualPxStr = '';
+  if (resMatch) {
+    const nx = parseInt(resMatch[1], 10);
+    const ny = parseInt(resMatch[2], 10);
+    let vx = scope90 ? ny : nx;
+    let vy = scope90 ? nx : ny;
+    if (verticalLens) vy = Math.round(vy * squeeze);
+    else vx = Math.round(vx * squeeze);
+    virtualPxStr = `${vx.toLocaleString()} \u00D7 ${vy.toLocaleString()} PX`;
+  } else {
+    virtualPxStr = `${activeMode.resolution || '—'} PX`;
+  }
+
+  // 4 cells: CAMERA / LENS / CALCULATED_RATIO / VIRTUAL_FORMAT
+  const cells = [
+    {
+      label: 'CAMERA',
+      value: `${camera.brand}  /  ${camera.model}`,
+      sub: `${camera.mode}  ·  ${activeMode.resolution}`,
+    },
+    {
+      label: 'LENS',
+      value: `${squeeze.toFixed(2)}\u00D7`,
+      sub: orientLabel,
+    },
+    {
+      label: 'CALCULATED_RATIO',
+      value: `${fullAspect.toFixed(2)}:1`,
+      sub: isMatch
+        ? `NATIVE_FIT FOR ${delivery.toFixed(2)}:1 TARGET`
+        : `CROP_LOSS ${cropPct.toFixed(1)}\u0025 ${cropAxis} FOR ${delivery.toFixed(2)}:1 TARGET`,
+    },
+    {
+      label: 'VIRTUAL_FORMAT',
+      value: `${virtualW.toFixed(2)} \u00D7 ${virtualH.toFixed(2)} MM`,
+      sub: virtualPxStr,
+    },
+  ];
+
+  const innerW = CARD_W - SIDE_PAD * 2;
+  const cellW = innerW / cells.length;
+  const cellTop = footerY + 22;
+
+  cells.forEach((cell, i) => {
+    const cx = SIDE_PAD + i * cellW;
+
+    // Cell label (above)
+    ctx.fillStyle = SUB;
+    ctx.font = `900 9px ${MONO}`;
+    ctx.textAlign = 'left';
+    ctx.textBaseline = 'top';
+    ctx.fillText(cell.label, cx, cellTop);
+
+    // Cell value (large)
+    ctx.fillStyle = WHITE;
+    ctx.font = `900 17px ${MONO}`;
+    ctx.fillText(cell.value, cx, cellTop + 18);
+
+    // Cell sub
+    ctx.fillStyle = SUB;
+    ctx.font = `700 10px ${MONO}`;
+    ctx.fillText(cell.sub, cx, cellTop + 44);
+
+    // Vertical rule between cells
+    if (i > 0) {
+      ctx.strokeStyle = 'rgba(255,255,255,0.10)';
+      ctx.lineWidth = 1;
+      ctx.beginPath();
+      ctx.moveTo(cx - 12, footerY + 18);
+      ctx.lineTo(cx - 12, footerY + FOOTER_H - 18);
+      ctx.stroke();
+    }
+  });
 }
 
 export function exportConfigCard({ camera, activeMode, squeeze, delivery, scope90, verticalLens }) {
   if (!activeMode) return;
+
+  // Compute unified mm-to-px scale shared by sensor + monitor + grid.
+  // Both diagrams render at the same scale so the grid is a literal ruler.
+  const effectiveW = scope90 ? activeMode.height : activeMode.width;
+  const effectiveH = scope90 ? activeMode.width : activeMode.height;
+  let monRawW, monRawH;
+  if (verticalLens) {
+    monRawW = effectiveW;
+    monRawH = monRawW * (effectiveH / effectiveW) * squeeze;
+  } else {
+    monRawH = effectiveH;
+    monRawW = monRawH * (effectiveW / effectiveH) * squeeze;
+  }
+
+  const sectionW = CARD_W / 2 - SIDE_PAD - 12;
+  const maxBoxW = sectionW - 80;
+  const maxBoxH = CONTENT_BOTTOM - CONTENT_TOP - 140;
+  const sensorFit = Math.min(maxBoxW / activeMode.width, maxBoxH / activeMode.height);
+  const monitorFit = Math.min(maxBoxW / monRawW, maxBoxH / monRawH);
+  const unifiedScale = Math.min(sensorFit, monitorFit);
 
   const canvas = document.createElement('canvas');
   canvas.width = CARD_W;
@@ -304,14 +403,16 @@ export function exportConfigCard({ camera, activeMode, squeeze, delivery, scope9
   const ctx = canvas.getContext('2d');
 
   // Background
-  ctx.fillStyle = BG;
+  ctx.fillStyle = PAPER;
   ctx.fillRect(0, 0, CARD_W, CARD_H);
 
+  drawScaleGrid(ctx, unifiedScale);
   drawHeader(ctx);
-  drawDivider(ctx);
-  drawSensorSection(ctx, { activeMode, squeeze, scope90, verticalLens });
-  drawMonitorSection(ctx, { activeMode, squeeze, delivery, scope90, verticalLens });
-  drawFooter(ctx, { camera, activeMode, squeeze, delivery, scope90, verticalLens });
+  drawRules(ctx);
+  drawSensorSection(ctx, { activeMode, squeeze, scope90, verticalLens, scale: unifiedScale });
+  drawMonitorSection(ctx, { activeMode, squeeze, delivery, scope90, verticalLens, scale: unifiedScale, monRawW, monRawH });
+  drawScaleLegend(ctx);
+  drawFooterSpec(ctx, { camera, activeMode, squeeze, delivery, scope90, verticalLens });
 
   canvas.toBlob((blob) => {
     if (!blob) return;

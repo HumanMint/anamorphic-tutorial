@@ -1,19 +1,151 @@
-import React, { useMemo } from 'react';
+import React, { useMemo, useState, useCallback, useRef, useEffect } from 'react';
 import clsx from 'clsx';
-import { Download } from 'lucide-react';
+import { animate, stagger, createSpring } from 'animejs';
+import { Download, ChevronDown } from 'lucide-react';
 import { DELIVERY_RATIOS } from '../utils/constants';
 import { exportConfigCard } from '../utils/exportCard';
 
-const ControlSection = ({ label, children }) => (
-  <div className="mb-10">
-    <div className="text-[10px] font-black uppercase tracking-[0.2em] text-gray-400 mb-4 border-b border-gray-100 pb-2">
-      {label}
+const ControlSection = ({ id, label, collapsed, onToggle, summary, children }) => {
+  const sectionRef = useRef(null);
+  const contentRef = useRef(null);
+  const summaryRef = useRef(null);
+  const chevronRef = useRef(null);
+  const isFirstRender = useRef(true);
+
+  // Mount animation — section fades + slides in when first revealed
+  useEffect(() => {
+    if (!sectionRef.current) return;
+    animate(sectionRef.current, {
+      opacity: [0, 1],
+      translateY: [-14, 0],
+      duration: 700,
+      ease: createSpring({ stiffness: 110, damping: 14 }),
+    });
+  }, []);
+
+  // Collapse / expand animation
+  useEffect(() => {
+    const el = contentRef.current;
+    if (!el) return;
+
+    if (isFirstRender.current) {
+      // Set initial state without animation
+      isFirstRender.current = false;
+      el.style.opacity = '1';
+      if (collapsed) {
+        el.style.maxHeight = '0px';
+        el.style.pointerEvents = 'none';
+      } else {
+        el.style.maxHeight = '9999px';
+        el.style.pointerEvents = 'auto';
+      }
+      return;
+    }
+
+    const buttons = Array.from(el.querySelectorAll('button, [role="switch"]'));
+
+    if (collapsed) {
+      // Collapsing — measure current height, animate down (no opacity layer)
+      const current = el.scrollHeight;
+      el.style.maxHeight = `${current}px`;
+      void el.offsetHeight;
+      el.style.pointerEvents = 'none';
+      animate(el, {
+        maxHeight: 0,
+        duration: 380,
+        ease: 'inOutQuart',
+      });
+    } else {
+      // Expanding — only maxHeight on the box; buttons handle their own opacity uniformly
+      el.style.maxHeight = '9999px';
+      const target = el.scrollHeight;
+      el.style.maxHeight = '0px';
+      void el.offsetHeight;
+      el.style.pointerEvents = 'auto';
+      animate(el, {
+        maxHeight: target,
+        duration: 420,
+        ease: 'outExpo',
+        onComplete: () => {
+          if (el.isConnected) el.style.maxHeight = '9999px';
+        },
+      });
+      if (buttons.length) {
+        // Uniform fade — every button comes up together
+        animate(buttons, {
+          opacity: [0, 1],
+          duration: 220,
+          ease: 'outQuart',
+        });
+        // Tight cascade on translateY — all buttons start moving within ~40ms
+        const cascadeMs = 40;
+        const gap = buttons.length > 1 ? cascadeMs / (buttons.length - 1) : 0;
+        animate(buttons, {
+          translateY: [10, 0],
+          delay: stagger(gap),
+          duration: 260,
+          ease: 'outQuart',
+        });
+      }
+    }
+
+    // Chevron rotation via anime
+    if (chevronRef.current) {
+      animate(chevronRef.current, {
+        rotate: collapsed ? 0 : 180,
+        duration: 500,
+        ease: createSpring({ stiffness: 200, damping: 14 }),
+      });
+    }
+
+    // Summary text fade
+    if (summaryRef.current) {
+      animate(summaryRef.current, {
+        opacity: collapsed ? [0, 1] : [1, 0],
+        translateX: collapsed ? [4, 0] : [0, 4],
+        duration: 350,
+        ease: 'outQuart',
+      });
+    }
+  }, [collapsed]);
+
+  return (
+    <div ref={sectionRef} className="mb-6">
+      <button
+        type="button"
+        onClick={onToggle}
+        aria-expanded={!collapsed}
+        aria-controls={`section-${id}`}
+        className="w-full flex items-center justify-between text-left mb-3 border-b border-gray-100 pb-2 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#ff4400]"
+      >
+        <span className="text-[10px] font-black uppercase tracking-[0.2em] text-gray-400">{label}</span>
+        <span className="flex items-center gap-2.5 min-w-0">
+          {summary && (
+            <span
+              ref={summaryRef}
+              className="text-[10px] font-bold text-gray-900 tracking-tight uppercase font-mono tabular-nums truncate max-w-[140px]"
+              style={{ opacity: collapsed ? 1 : 0 }}
+            >
+              {summary}
+            </span>
+          )}
+          <span ref={chevronRef} className="inline-flex shrink-0">
+            <ChevronDown size={12} strokeWidth={2.5} className="text-gray-400" />
+          </span>
+        </span>
+      </button>
+      <div
+        ref={contentRef}
+        id={`section-${id}`}
+        className="overflow-hidden"
+      >
+        <div className="flex flex-col gap-1">
+          {children}
+        </div>
+      </div>
     </div>
-    <div className="flex flex-col gap-1">
-      {children}
-    </div>
-  </div>
-);
+  );
+};
 
 const TactileButton = ({ active, onClick, label, sublabel }) => (
   <button
@@ -56,6 +188,42 @@ const Controls = ({ data, selection, onChange, showControls, setShowControls }) 
     return [...new Set(squeezes)].sort((a, b) => a - b);
   }, [modes, selection.mode]);
 
+  // Collapsed accordion state — auto-progress as user makes selections
+  const [collapsed, setCollapsed] = useState({});
+
+  const toggleSection = useCallback((id) => {
+    setCollapsed(prev => ({ ...prev, [id]: !prev[id] }));
+  }, []);
+
+  const handleSelect = useCallback((key, value) => {
+    onChange(key, value);
+    setCollapsed(prev => {
+      const next = { ...prev };
+      if (key === 'brand') {
+        next.camera = true;
+        delete next.unit; delete next.mode; delete next.squeeze; delete next.target;
+      } else if (key === 'model') {
+        next.unit = true;
+        delete next.mode; delete next.squeeze; delete next.target;
+      } else if (key === 'mode') {
+        next.mode = true;
+        delete next.squeeze; delete next.target;
+      } else if (key === 'squeeze') {
+        next.squeeze = true;
+      } else if (key === 'delivery') {
+        next.target = true;
+      }
+      // scope90 / verticalLens left expanded — user may toggle multiple
+      return next;
+    });
+  }, [onChange]);
+
+  const advancedSummary = selection.scope90
+    ? 'ATLAS_SCOPE_90'
+    : selection.verticalLens
+      ? 'VERTICAL_LENS'
+      : 'STANDARD';
+
   return (
     <div
       className={clsx(
@@ -96,13 +264,19 @@ const Controls = ({ data, selection, onChange, showControls, setShowControls }) 
           showControls ? 'opacity-100' : 'opacity-0 pointer-events-none lg:opacity-100 lg:pointer-events-auto'
         )}
       >
-        <ControlSection label="01_Camera System">
+        <ControlSection
+          id="camera"
+          label="01_Camera System"
+          collapsed={!!collapsed.camera && !!selection.brand}
+          onToggle={() => toggleSection('camera')}
+          summary={selection.brand}
+        >
           <div className="grid grid-cols-2 gap-1">
             {brands.map(brand => (
               <TactileButton
                 key={brand}
                 active={selection.brand === brand}
-                onClick={() => onChange('brand', brand)}
+                onClick={() => handleSelect('brand', brand)}
                 label={brand}
               />
             ))}
@@ -110,13 +284,19 @@ const Controls = ({ data, selection, onChange, showControls, setShowControls }) 
         </ControlSection>
 
         {selection.brand && (
-          <ControlSection label="02_Sensor Unit">
+          <ControlSection
+            id="unit"
+            label="02_Sensor Unit"
+            collapsed={!!collapsed.unit && !!selection.model}
+            onToggle={() => toggleSection('unit')}
+            summary={selection.model}
+          >
             <div className="flex flex-col gap-1">
               {models.map(model => (
                 <TactileButton
                   key={model}
                   active={selection.model === model}
-                  onClick={() => onChange('model', model)}
+                  onClick={() => handleSelect('model', model)}
                   label={model}
                 />
               ))}
@@ -125,13 +305,19 @@ const Controls = ({ data, selection, onChange, showControls, setShowControls }) 
         )}
 
         {selection.model && (
-          <ControlSection label="03_Sensor Mode">
+          <ControlSection
+            id="mode"
+            label="03_Sensor Mode"
+            collapsed={!!collapsed.mode && !!selection.mode}
+            onToggle={() => toggleSection('mode')}
+            summary={selection.mode}
+          >
             <div className="flex flex-col gap-1">
               {modes.map(mode => (
                 <TactileButton
                   key={mode.name}
                   active={selection.mode === mode.name}
-                  onClick={() => onChange('mode', mode.name)}
+                  onClick={() => handleSelect('mode', mode.name)}
                   label={mode.name}
                   sublabel={mode.resolution}
                 />
@@ -142,26 +328,38 @@ const Controls = ({ data, selection, onChange, showControls, setShowControls }) 
 
         {selection.mode && (
           <>
-            <ControlSection label="04_Lens Squeeze">
+            <ControlSection
+              id="squeeze"
+              label="04_Lens Squeeze"
+              collapsed={!!collapsed.squeeze}
+              onToggle={() => toggleSection('squeeze')}
+              summary={`${selection.squeeze}\u00D7`}
+            >
               <div className="grid grid-cols-3 gap-1">
                 {availableSqueezes.map(s => (
                   <TactileButton
                     key={s}
                     active={selection.squeeze === s}
-                    onClick={() => onChange('squeeze', s)}
+                    onClick={() => handleSelect('squeeze', s)}
                     label={`${s}x`}
                   />
                 ))}
               </div>
             </ControlSection>
 
-            <ControlSection label="05_Output Crop">
+            <ControlSection
+              id="target"
+              label="05_Target Ratio"
+              collapsed={!!collapsed.target}
+              onToggle={() => toggleSection('target')}
+              summary={`${selection.delivery.toFixed(2)}:1`}
+            >
               <div className="grid grid-cols-2 gap-1">
                 {DELIVERY_RATIOS.map(r => (
                   <TactileButton
                     key={r.value}
                     active={selection.delivery === r.value}
-                    onClick={() => onChange('delivery', r.value)}
+                    onClick={() => handleSelect('delivery', r.value)}
                     label={r.label}
                     sublabel={r.sublabel}
                   />
@@ -169,7 +367,13 @@ const Controls = ({ data, selection, onChange, showControls, setShowControls }) 
               </div>
             </ControlSection>
 
-            <ControlSection label="90_Advanced Configuration">
+            <ControlSection
+              id="advanced"
+              label="90_Advanced Configuration"
+              collapsed={!!collapsed.advanced}
+              onToggle={() => toggleSection('advanced')}
+              summary={advancedSummary}
+            >
               <button
                   role="switch"
                   aria-checked={selection.scope90}
